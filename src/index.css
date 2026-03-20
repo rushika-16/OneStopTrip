@@ -1,0 +1,55 @@
+:root {
+  --font-body: 'Avenir Next', 'Segoe UI', sans-serif;
+  --font-heading: 'Futura', 'Trebuchet MS', sans-serif;
+  --ink: #1f3f48;
+  --page-start: #e6f4f8;
+  --page-mid: #f7fef8;
+  --page-end: #fef4dc;
+  font-family: var(--font-body);
+  color: var(--ink);
+  line-height: 1.45;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(circle at 20% 15%, rgba(255, 215, 153, 0.42), transparent 38%),
+    radial-gradient(circle at 80% 90%, rgba(128, 214, 225, 0.45), transparent 34%),
+    linear-gradient(160deg, var(--page-start), var(--page-mid) 48%, var(--page-end));
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-heading);
+  color: #163740;
+  letter-spacing: 0.01em;
+}
+
+p {
+  margin: 0;
+}
+
+ul {
+  margin: 0.45rem 0 0;
+  padding-left: 1.1rem;
+}
+
+a {
+  color: #0f6f80;
+}
