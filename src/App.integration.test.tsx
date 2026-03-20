@@ -85,6 +85,7 @@ function createStoredState(overrides: Partial<TravelState> = {}): Partial<Travel
       { id: 'u3', name: 'Mia' },
     ],
     plannerInput,
+    explorerLocation: overrides.explorerLocation ?? 'Maui',
     plans: overrides.plans ?? buildDestinationPlans(plannerInput),
     selectedTier: overrides.selectedTier ?? 'mid-range',
     expenses: overrides.expenses ?? [],
@@ -212,6 +213,12 @@ describe('App integration', () => {
     })
 
     expect(screen.getByText('Search in Tokyo')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /back/i }))
+    clickModule('Explore')
+
+    expect(await screen.findByText('Search in Tokyo')).toBeInTheDocument()
+    expect(screen.getByLabelText('Location')).toHaveValue('Tokyo')
 
     fireEvent.change(screen.getByLabelText('What to find?'), {
       target: { value: 'museum' },

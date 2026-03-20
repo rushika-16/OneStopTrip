@@ -7,6 +7,7 @@ interface ExplorerPanelProps {
   places: ExplorerPlace[]
   bookmarks: string[]
   onToggleBookmark: (placeId: string) => void
+  onLocationChange: (location: string) => void
 }
 
 export function ExplorerPanel({
@@ -14,6 +15,7 @@ export function ExplorerPanel({
   places,
   bookmarks,
   onToggleBookmark,
+  onLocationChange,
 }: ExplorerPanelProps) {
   const [searchLocation, setSearchLocation] = useState(location)
   const [query, setQuery] = useState('')
@@ -24,6 +26,17 @@ export function ExplorerPanel({
   useEffect(() => {
     setSearchLocation(location)
   }, [location])
+
+  useEffect(() => {
+    onLocationChange(searchLocation)
+  }, [searchLocation, onLocationChange])
+
+  const normalizedLocation = searchLocation.trim()
+
+  const buildMapUrl = (placeName: string) => {
+    const terms = [placeName, normalizedLocation].filter(Boolean).join(' ')
+    return `https://maps.google.com/?q=${encodeURIComponent(terms)}`
+  }
 
   const filtered = useMemo(
     () =>
@@ -166,7 +179,7 @@ export function ExplorerPanel({
                       {isBookmarked ? 'Saved' : 'Save'}
                     </button>
                     <a
-                      href={place.mapUrl}
+                      href={buildMapUrl(place.name)}
                       target="_blank"
                       rel="noreferrer"
                       style={{

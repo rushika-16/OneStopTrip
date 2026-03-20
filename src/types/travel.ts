@@ -156,6 +156,7 @@ export interface TravelState {
   trip: TripMeta
   participants: Participant[]
   plannerInput: PlannerInput
+  explorerLocation: string
   plans: PlannerPlan[]
   selectedTier: BudgetTier | null
   expenses: Expense[]

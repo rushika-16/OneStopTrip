@@ -4,10 +4,13 @@ import { useTravelStore } from '../store/useTravelStore'
 
 export function ExplorePage() {
   const navigate = useNavigate()
-  const { state, toggleBookmark } = useTravelStore()
+  const { state, toggleBookmark, setExplorerLocation } = useTravelStore()
 
   const selectedPlan =
     state.plans.find((plan) => plan.tier === state.selectedTier) ?? state.plans[0] ?? null
+
+  const activeLocation =
+    state.explorerLocation || selectedPlan?.destination.name || state.trip.baseLocation
 
   return (
     <div className="page-wrapper">
@@ -19,10 +22,11 @@ export function ExplorePage() {
       </header>
       <main className="page-content">
         <ExplorerPanel
-          location={selectedPlan?.destination.name ?? state.trip.baseLocation}
+          location={activeLocation}
           places={state.places}
           bookmarks={state.bookmarks}
           onToggleBookmark={toggleBookmark}
+          onLocationChange={setExplorerLocation}
         />
       </main>
     </div>

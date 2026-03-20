@@ -144,6 +144,7 @@ function seedState(): TravelState {
       { id: 'u3', name: 'Mia' },
     ],
     plannerInput,
+    explorerLocation: 'Maui',
     plans: buildDestinationPlans(plannerInput),
     selectedTier: 'mid-range',
     expenses: [
@@ -219,6 +220,11 @@ function normalizeTravelState(value: unknown): TravelState {
       name: sanitizeTripName(rawState.trip?.name ?? seededState.trip.name),
     },
     plannerInput: { ...seededState.plannerInput, ...rawState.plannerInput },
+    explorerLocation:
+      typeof rawState.explorerLocation === 'string' &&
+      rawState.explorerLocation.trim().length > 0
+        ? rawState.explorerLocation
+        : seededState.explorerLocation,
     participants: Array.isArray(rawState.participants)
       ? rawState.participants
       : seededState.participants,
@@ -300,6 +306,14 @@ export function useTravelStore() {
       ...prev,
       plans: buildDestinationPlans(prev.plannerInput),
       selectedTier: prev.selectedTier ?? 'mid-range',
+    }))
+  }, [])
+
+  const setExplorerLocation = useCallback((location: string) => {
+    setState((prev) => ({
+      ...prev,
+      explorerLocation:
+        prev.explorerLocation === location ? prev.explorerLocation : location,
     }))
   }, [])
 
@@ -391,6 +405,7 @@ export function useTravelStore() {
     expenseSummary,
     updatePlannerInput,
     generatePlans,
+    setExplorerLocation,
     selectTier,
     addExpense,
     toggleBookmark,
