@@ -207,6 +207,12 @@ describe('App integration', () => {
     clickModule('Explore')
     expect(await screen.findByRole('heading', { name: 'Explore Destination' })).toBeInTheDocument()
 
+    fireEvent.change(screen.getByLabelText('Location'), {
+      target: { value: 'Tokyo' },
+    })
+
+    expect(screen.getByText('Search in Tokyo')).toBeInTheDocument()
+
     fireEvent.change(screen.getByLabelText('What to find?'), {
       target: { value: 'museum' },
     })

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { filterPlaces } from '../../services/explorerEngine'
 import { type ExplorerPlace, type ExplorerType } from '../../types/travel'
 
@@ -15,10 +15,15 @@ export function ExplorerPanel({
   bookmarks,
   onToggleBookmark,
 }: ExplorerPanelProps) {
+  const [searchLocation, setSearchLocation] = useState(location)
   const [query, setQuery] = useState('')
   const [type, setType] = useState<ExplorerType | 'all'>('all')
   const [cuisine, setCuisine] = useState('')
   const [budgetBand, setBudgetBand] = useState<'all' | 'low' | 'mid' | 'high'>('all')
+
+  useEffect(() => {
+    setSearchLocation(location)
+  }, [location])
 
   const filtered = useMemo(
     () =>
@@ -36,8 +41,17 @@ export function ExplorerPanel({
   return (
     <section className="panel">
       <div className="card">
-        <h3>Search in {location}</h3>
+        <h3>Search in {searchLocation || 'your destination'}</h3>
         <div className="form-grid">
+          <label>
+            Location
+            <input
+              value={searchLocation}
+              onChange={(event) => setSearchLocation(event.target.value)}
+              placeholder="City, region, or neighborhood"
+            />
+          </label>
+
           <label>
             What to find?
             <input
