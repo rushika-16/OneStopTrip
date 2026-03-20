@@ -292,6 +292,22 @@ function inferHomeCountry(location: string): string {
   return 'India'
 }
 
+function matchesRequestedDestination(
+  destination: DestinationOption,
+  requestedDestination: string,
+): boolean {
+  const normalized = requestedDestination.trim().toLowerCase()
+
+  if (!normalized) {
+    return false
+  }
+
+  return (
+    destination.name.toLowerCase().includes(normalized) ||
+    destination.country.toLowerCase().includes(normalized)
+  )
+}
+
 function isInternationalTrip(homeCountry: string, destination: DestinationOption): boolean {
   return destination.country !== homeCountry
 }
@@ -412,6 +428,7 @@ function buildPlanNotes(
   destination: DestinationOption,
   input: PlannerInput,
   homeCountry: string,
+  requestedDestination?: string,
 ): string[] {
   const notes: string[] = []
 
@@ -431,32 +448,70 @@ function buildPlanNotes(
     notes.push(`Food-fit confidence: ${input.foodPreferences.join(', ')}`)
   }
 
+  if (requestedDestination?.trim()) {
+    const exactMatch = matchesRequestedDestination(destination, requestedDestination)
+
+    if (exactMatch) {
+      notes.push(`Destination matched your request: ${requestedDestination.trim()}.`)
+    } else {
+      notes.push(
+        `No exact match for "${requestedDestination.trim()}". Showing closest destination based on your filters.`,
+      )
+    }
+  }
+
   return notes
 }
 
 export function buildDestinationPlans(input: PlannerInput): PlannerPlan[] {
   const homeCountry = inferHomeCountry(input.currentLocation)
+  const requestedDestination = input.targetDestination?.trim() ?? ''
+  const hasRequestedDestination = requestedDestination.length > 0
+
+  const matchesScope = (destination: DestinationOption) =>
+    input.travelScope === 'either' ||
+    (input.travelScope === 'domestic'
+      ? !isInternationalTrip(homeCountry, destination)
+      : isInternationalTrip(homeCountry, destination))
+
+  const matchesVisa = (destination: DestinationOption) =>
+    !isInternationalTrip(homeCountry, destination) ||
+    input.hasVisa ||
+    !destination.visaRequired
+
+  const requestedMatches = hasRequestedDestination
+    ? DESTINATIONS.filter((destination) =>
+        matchesRequestedDestination(destination, requestedDestination),
+      )
+    : []
 
   const filtered = DESTINATIONS.filter((destination) => {
-    const scopeMatch =
-      input.travelScope === 'either' ||
-      (input.travelScope === 'domestic'
-        ? !isInternationalTrip(homeCountry, destination)
-        : isInternationalTrip(homeCountry, destination))
-    const typeMatch = destination.type === input.destinationType
-    const visaMatch =
-      !isInternationalTrip(homeCountry, destination) || input.hasVisa || !destination.visaRequired
-    return scopeMatch && typeMatch && visaMatch
+    const scopeMatch = matchesScope(destination)
+    const visaMatch = matchesVisa(destination)
+
+    if (hasRequestedDestination) {
+      return (
+        scopeMatch &&
+        visaMatch &&
+        matchesRequestedDestination(destination, requestedDestination)
+      )
+    }
+
+    return scopeMatch && destination.type === input.destinationType && visaMatch
   })
+
+  const typedFallback = DESTINATIONS.filter(
+    (destination) =>
+      destination.type === input.destinationType &&
+      (input.hasVisa || !destination.visaRequired || destination.country === homeCountry),
+  )
 
   const fallback =
     filtered.length > 0
       ? filtered
-      : DESTINATIONS.filter(
-          (destination) =>
-            destination.type === input.destinationType &&
-            (input.hasVisa || !destination.visaRequired || destination.country === homeCountry),
-        )
+      : requestedMatches.length > 0
+        ? requestedMatches
+        : typedFallback
 
   const tiers: BudgetTier[] = ['budget', 'mid-range', 'premium']
   const usedDestinationIds = new Set<string>()
@@ -475,7 +530,12 @@ export function buildDestinationPlans(input: PlannerInput): PlannerPlan[] {
         destination,
         breakdown,
         itinerary: buildItinerary(destination, input, tier),
-        notes: buildPlanNotes(destination, input, homeCountry),
+        notes: buildPlanNotes(
+          destination,
+          input,
+          homeCountry,
+          requestedDestination,
+        ),
         budgetOptimizerTips: buildOptimizerTips(
           breakdown.total,
           input.totalBudget,

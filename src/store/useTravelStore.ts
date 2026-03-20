@@ -29,6 +29,7 @@ function seedState(): TravelState {
     totalBudget: 2400,
     travelDays: 6,
     currentLocation: 'Mumbai',
+    targetDestination: '',
     travelerCount: 3,
     destinationType: 'beach',
     travelScope: 'either',

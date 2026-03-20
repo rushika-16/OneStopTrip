@@ -151,6 +151,17 @@ export function PlannerPanel({
           </label>
 
           <label>
+            Destination (Optional)
+            <input
+              value={input.targetDestination ?? ''}
+              onChange={(event) =>
+                onInputChange({ targetDestination: event.target.value })
+              }
+              placeholder="e.g., Mumbai, Bali, Kyoto"
+            />
+          </label>
+
+          <label>
             Travelers
             <input
               type="number"

@@ -27,6 +27,7 @@ export interface PlannerInput {
   totalBudget: number
   travelDays: number
   currentLocation: string
+  targetDestination?: string
   travelerCount: number
   destinationType: DestinationType
   travelScope: TravelScope

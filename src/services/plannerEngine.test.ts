@@ -176,6 +176,35 @@ describe('plannerEngine: buildDestinationPlans', () => {
     expect(plans.length).toBeGreaterThan(0);
   });
 
+  it('should prioritize requested destination when provided', () => {
+    const input = createInput({
+      destinationType: 'beach',
+      travelScope: 'either',
+      targetDestination: 'Mumbai',
+    });
+
+    const plans = buildDestinationPlans(input);
+
+    expect(plans.length).toBeGreaterThan(0);
+    plans.forEach((plan) => {
+      expect(plan.destination.name).toContain('Mumbai');
+    });
+  });
+
+  it('should fall back to type-based suggestions if requested destination is unknown', () => {
+    const input = createInput({
+      destinationType: 'mountains',
+      targetDestination: 'Atlantis',
+    });
+
+    const plans = buildDestinationPlans(input);
+
+    expect(plans.length).toBeGreaterThan(0);
+    plans.forEach((plan) => {
+      expect(plan.destination.type).toBe('mountains');
+    });
+  });
+
   it('should adjust cost breakdown for group size', () => {
     const singleInput = createInput({
       travelerCount: 1,
