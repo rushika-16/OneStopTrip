@@ -85,7 +85,7 @@ function createStoredState(overrides: Partial<TravelState> = {}): Partial<Travel
       { id: 'u3', name: 'Mia' },
     ],
     plannerInput,
-    explorerLocation: overrides.explorerLocation ?? 'Maui',
+    explorerLocation: overrides.explorerLocation ?? plannerInput.currentLocation,
     plans: overrides.plans ?? buildDestinationPlans(plannerInput),
     selectedTier: overrides.selectedTier ?? 'mid-range',
     expenses: overrides.expenses ?? [],

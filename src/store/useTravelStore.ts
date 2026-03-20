@@ -144,7 +144,7 @@ function seedState(): TravelState {
       { id: 'u3', name: 'Mia' },
     ],
     plannerInput,
-    explorerLocation: 'Maui',
+    explorerLocation: plannerInput.targetDestination || plannerInput.currentLocation,
     plans: buildDestinationPlans(plannerInput),
     selectedTier: 'mid-range',
     expenses: [
