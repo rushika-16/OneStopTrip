@@ -1,4 +1,10 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import {
+  BrowserRouter,
+  HashRouter,
+  Routes,
+  Route,
+  Navigate,
+} from 'react-router-dom'
 import { HomePage } from './pages/HomePage'
 import { PlanPage } from './pages/PlanPage'
 import { TrackPage } from './pages/TrackPage'
@@ -8,6 +14,8 @@ import { TripLogPage } from './pages/TripLogPage'
 import './App.css'
 
 function App() {
+  const Router = import.meta.env.PROD ? HashRouter : BrowserRouter
+
   return (
     <Router>
       <Routes>
