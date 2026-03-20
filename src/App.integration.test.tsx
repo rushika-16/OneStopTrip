@@ -231,6 +231,26 @@ describe('App integration', () => {
     expect(screen.getByRole('button', { name: 'Saved' })).toBeInTheDocument()
   })
 
+  it('migrates legacy hardcoded explore location to the user trip location', async () => {
+    renderApp({
+      plannerInput: createPlannerInput({ currentLocation: 'Pune' }),
+      trip: {
+        id: 'trip-main',
+        name: 'OneStopTrip Escape',
+        budget: 2400,
+        startDate: '2026-06-10',
+        endDate: '2026-06-16',
+        baseLocation: 'Pune',
+      },
+      explorerLocation: 'Maui',
+    })
+
+    clickModule('Explore')
+
+    expect(await screen.findByText('Search in Pune')).toBeInTheDocument()
+    expect(screen.getByLabelText('Location')).toHaveValue('Pune')
+  })
+
   it('adds and completes tasks from the coordinator page', async () => {
     renderApp({ tasks: [] })
 

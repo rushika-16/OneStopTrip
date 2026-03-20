@@ -210,6 +210,27 @@ function normalizeTravelState(value: unknown): TravelState {
   }
 
   const rawState = value as Partial<TravelState>
+  const mergedPlannerInput = {
+    ...seededState.plannerInput,
+    ...rawState.plannerInput,
+  }
+
+  const rawExplorerLocation =
+    typeof rawState.explorerLocation === 'string'
+      ? rawState.explorerLocation.trim()
+      : ''
+
+  const defaultExplorerLocation =
+    mergedPlannerInput.targetDestination?.trim() ||
+    mergedPlannerInput.currentLocation?.trim() ||
+    rawState.trip?.baseLocation?.trim() ||
+    seededState.explorerLocation
+
+  const isLegacyMauiPlaceholder = rawExplorerLocation.toLowerCase() === 'maui'
+  const normalizedExplorerLocation =
+    rawExplorerLocation.length > 0 && !isLegacyMauiPlaceholder
+      ? rawExplorerLocation
+      : defaultExplorerLocation
 
   return {
     ...seededState,
@@ -219,12 +240,8 @@ function normalizeTravelState(value: unknown): TravelState {
       ...rawState.trip,
       name: sanitizeTripName(rawState.trip?.name ?? seededState.trip.name),
     },
-    plannerInput: { ...seededState.plannerInput, ...rawState.plannerInput },
-    explorerLocation:
-      typeof rawState.explorerLocation === 'string' &&
-      rawState.explorerLocation.trim().length > 0
-        ? rawState.explorerLocation
-        : seededState.explorerLocation,
+    plannerInput: mergedPlannerInput,
+    explorerLocation: normalizedExplorerLocation,
     participants: Array.isArray(rawState.participants)
       ? rawState.participants
       : seededState.participants,

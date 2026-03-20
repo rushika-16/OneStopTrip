@@ -10,7 +10,12 @@ export function ExplorePage() {
     state.plans.find((plan) => plan.tier === state.selectedTier) ?? state.plans[0] ?? null
 
   const activeLocation =
-    state.explorerLocation || selectedPlan?.destination.name || state.trip.baseLocation
+    state.explorerLocation ||
+    state.plannerInput.targetDestination ||
+    state.plannerInput.currentLocation ||
+    state.trip.baseLocation ||
+    selectedPlan?.destination.name ||
+    ''
 
   return (
     <div className="page-wrapper">
