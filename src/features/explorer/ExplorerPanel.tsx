@@ -1,9 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
+import { formatMoney } from '../../services/currency'
 import { filterPlaces } from '../../services/explorerEngine'
-import { type ExplorerPlace, type ExplorerType } from '../../types/travel'
+import {
+  type CurrencyCode,
+  type ExplorerPlace,
+  type ExplorerType,
+} from '../../types/travel'
 
 interface ExplorerPanelProps {
   location: string
+  currency: CurrencyCode
   places: ExplorerPlace[]
   bookmarks: string[]
   onToggleBookmark: (placeId: string) => void
@@ -12,6 +18,7 @@ interface ExplorerPanelProps {
 
 export function ExplorerPanel({
   location,
+  currency,
   places,
   bookmarks,
   onToggleBookmark,
@@ -153,7 +160,7 @@ export function ExplorerPanel({
                     </span>
                   </div>
                   <p style={{ fontSize: '0.9rem', color: '#666', marginBottom: '0.75rem' }}>
-                    {`Rating ${place.rating.toFixed(1)} • ${place.distanceKm.toFixed(1)}km • ~$${place.estimatedCost}`}
+                    {`Rating ${place.rating.toFixed(1)} • ${place.distanceKm.toFixed(1)}km • ~${formatMoney(place.estimatedCost, currency)}`}
                   </p>
                   <p style={{ fontSize: '0.9rem', marginBottom: '0.75rem', lineHeight: 1.4 }}>
                     {place.reviewSnippet}

@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react'
+import { formatMoney } from '../../services/currency'
 import {
+  type CurrencyCode,
   type Expense,
   type ExpenseCategory,
   type ExpenseSummary,
@@ -9,6 +11,7 @@ import {
 
 interface ExpensePanelProps {
   budget: number
+  currency: CurrencyCode
   participants: Participant[]
   expenses: Expense[]
   summary: ExpenseSummary
@@ -21,6 +24,7 @@ function participantName(id: string, participants: Participant[]): string {
 
 export function ExpensePanel({
   budget,
+  currency,
   participants,
   expenses,
   summary,
@@ -199,7 +203,9 @@ export function ExpensePanel({
                   <span className="arrow"> → </span>
                   <strong>{participantName(item.to, participants)}</strong>
                 </div>
-                <span className="settlement-amount">${item.amount.toFixed(2)}</span>
+                <span className="settlement-amount">
+                  {formatMoney(item.amount, currency)}
+                </span>
               </div>
             ))}
           </div>
@@ -215,7 +221,8 @@ export function ExpensePanel({
             <div key={id} className="balance-item">
               <span>{participantName(id, participants)}</span>
               <span className={balance >= 0 ? 'gets' : 'owes'}>
-                {balance >= 0 ? '+ ' : '- '}${Math.abs(balance).toFixed(2)}
+                {balance >= 0 ? '+ ' : '- '}
+                {formatMoney(Math.abs(balance), currency)}
               </span>
             </div>
           ))}
@@ -227,15 +234,15 @@ export function ExpensePanel({
         <div className="budget-summary">
           <div className="budget-row">
             <span>Total Budget</span>
-            <strong>${budget.toFixed(0)}</strong>
+            <strong>{formatMoney(budget, currency)}</strong>
           </div>
           <div className="budget-row">
             <span>Spent</span>
-            <strong>${summary.totalSpent.toFixed(2)}</strong>
+            <strong>{formatMoney(summary.totalSpent, currency)}</strong>
           </div>
           <div className="budget-row">
             <span>Remaining</span>
-            <strong>${remainingBudget.toFixed(2)}</strong>
+            <strong>{formatMoney(remainingBudget, currency)}</strong>
           </div>
         </div>
         <div className="progress-wrap">
@@ -255,7 +262,7 @@ export function ExpensePanel({
               value > 0 && (
                 <div key={key} className="category-row">
                   <span>{key.charAt(0).toUpperCase() + key.slice(1)}</span>
-                  <strong>${value.toFixed(2)}</strong>
+                  <strong>{formatMoney(value, currency)}</strong>
                 </div>
               )
             ))}
@@ -272,7 +279,7 @@ export function ExpensePanel({
                   <strong>{expense.title}</strong>
                   <p className="expense-meta">by {participantName(expense.paidBy, participants)}</p>
                 </div>
-                <strong>${expense.amount.toFixed(2)}</strong>
+                <strong>{formatMoney(expense.amount, currency)}</strong>
               </div>
             ))}
           </div>

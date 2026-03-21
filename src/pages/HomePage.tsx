@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom'
+import { formatMoney } from '../services/currency'
 import { useTravelStore } from '../store/useTravelStore'
 import './HomePage.css'
 
@@ -53,7 +54,12 @@ export function HomePage() {
           <div className="trip-meta">
             <div>
               <small>Budget</small>
-              <strong>${state.trip.budget.toFixed(0)}</strong>
+              <strong>
+                {formatMoney(
+                  state.trip.budget,
+                  state.plannerInput.budgetCurrency,
+                )}
+              </strong>
             </div>
             <div>
               <small>Dates</small>

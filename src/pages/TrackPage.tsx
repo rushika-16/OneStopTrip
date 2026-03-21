@@ -17,6 +17,7 @@ export function TrackPage() {
       <main className="page-content">
         <ExpensePanel
           budget={state.trip.budget}
+          currency={state.plannerInput.budgetCurrency}
           participants={state.participants}
           expenses={state.expenses}
           summary={expenseSummary}

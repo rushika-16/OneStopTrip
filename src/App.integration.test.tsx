@@ -1,17 +1,24 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import App from './App'
-import { buildDestinationPlans } from './services/plannerEngine'
-import type { ExplorerPlace, PlannerInput, TravelState, TripTask } from './types/travel'
+import type {
+  ExplorerPlace,
+  PlannerInput,
+  PlannerPlan,
+  TravelState,
+  TripTask,
+} from './types/travel'
 
 const STORAGE_KEY = 'onestoptrip-state-v1'
 
 function createPlannerInput(overrides: Partial<PlannerInput> = {}): PlannerInput {
   return {
     totalBudget: 2400,
+    budgetCurrency: 'USD',
     travelDays: 6,
     currentLocation: 'Mumbai',
     travelerCount: 3,
+    tripType: 'leisure',
     destinationType: 'beach',
     travelScope: 'either',
     hasVisa: false,
@@ -65,6 +72,65 @@ function createTasks(): TripTask[] {
   ]
 }
 
+function createPlan(currency: PlannerInput['budgetCurrency']): PlannerPlan {
+  const places = createPlaces()
+
+  return {
+    tier: 'mid-range',
+    destination: {
+      id: 'plan-city-1',
+      name: 'Mumbai',
+      country: 'India',
+      countryCode: 'IN',
+      latitude: 19.07,
+      longitude: 72.87,
+      timezone: 'Asia/Kolkata',
+      scope: 'domestic',
+      type: 'city',
+      popularityScore: 1000,
+      primaryCurrency: 'INR',
+      visaRequired: false,
+      foodTags: ['veg'],
+      activityTags: ['museum'],
+    },
+    route: ['Mumbai, India'],
+    breakdown: {
+      transport: 300,
+      accommodation: 900,
+      food: 450,
+      activities: 350,
+      total: 2000,
+      perPerson: 667,
+      currency,
+      totalInUsd: 2000,
+    },
+    itinerary: [
+      {
+        day: 1,
+        city: 'Mumbai',
+        title: 'Day 1: Explore Mumbai',
+        highlights: ['Morning visit', 'Lunch break', 'Afternoon activity'],
+        schedule: [
+          {
+            time: '09:00',
+            activity: 'Morning visit: City Museum',
+            place: 'City Museum',
+            city: 'Mumbai',
+            mapUrl: 'https://maps.google.com/?q=City+Museum',
+            estimatedCost: 20,
+          },
+        ],
+        estimatedDailyCost: 200,
+      },
+    ],
+    summary: 'Sample plan summary',
+    isWithinBudget: true,
+    notes: ['Generated from live sources'],
+    budgetOptimizerTips: ['Keep 10% contingency'],
+    places,
+  }
+}
+
 function createStoredState(overrides: Partial<TravelState> = {}): Partial<TravelState> {
   const plannerInput = createPlannerInput(overrides.plannerInput)
   const trip = {
@@ -85,8 +151,11 @@ function createStoredState(overrides: Partial<TravelState> = {}): Partial<Travel
       { id: 'u3', name: 'Mia' },
     ],
     plannerInput,
+    plannerStatus: overrides.plannerStatus ?? 'success',
+    plannerError: overrides.plannerError ?? null,
+    lastPlanGeneratedAt: overrides.lastPlanGeneratedAt ?? '2026-03-20T12:00:00.000Z',
     explorerLocation: overrides.explorerLocation ?? plannerInput.currentLocation,
-    plans: overrides.plans ?? buildDestinationPlans(plannerInput),
+    plans: overrides.plans ?? [createPlan(plannerInput.budgetCurrency)],
     selectedTier: overrides.selectedTier ?? 'mid-range',
     expenses: overrides.expenses ?? [],
     places: overrides.places ?? createPlaces(),
@@ -155,7 +224,7 @@ describe('App integration', () => {
     clickModule('Plan')
     expect(await screen.findByRole('heading', { name: 'Plan Your Trip' })).toBeInTheDocument()
 
-    fireEvent.change(screen.getByLabelText('Budget'), {
+    fireEvent.change(screen.getByLabelText('1. Budget Amount'), {
       target: { value: '3600' },
     })
     fireEvent.change(screen.getByLabelText('From'), {
@@ -164,7 +233,7 @@ describe('App integration', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /back/i }))
 
-    expect(await screen.findByText('$3600')).toBeInTheDocument()
+    expect(await screen.findByText('$3,600')).toBeInTheDocument()
     expect(screen.getByText('Goa')).toBeInTheDocument()
   })
 
@@ -197,7 +266,7 @@ describe('App integration', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add Expense' }))
 
     expect(await screen.findByText('Museum Tickets')).toBeInTheDocument()
-    expect(screen.getAllByText('$120.00').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('$120').length).toBeGreaterThan(0)
     expect(screen.getByText('Recent Expenses')).toBeInTheDocument()
     expect(screen.getByText('12% used')).toBeInTheDocument()
   })

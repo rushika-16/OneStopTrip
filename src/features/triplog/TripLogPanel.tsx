@@ -1,8 +1,10 @@
 import { type FormEvent, useState } from 'react'
-import { type PastTrip } from '../../types/travel'
+import { formatMoney } from '../../services/currency'
+import { type CurrencyCode, type PastTrip } from '../../types/travel'
 
 interface TripLogPanelProps {
   pastTrips: PastTrip[]
+  currency: CurrencyCode
   onAddPastTrip: (trip: Omit<PastTrip, 'id'>) => void
 }
 
@@ -51,7 +53,11 @@ function parseList(value: string): string[] {
     .filter(Boolean)
 }
 
-export function TripLogPanel({ pastTrips, onAddPastTrip }: TripLogPanelProps) {
+export function TripLogPanel({
+  pastTrips,
+  currency,
+  onAddPastTrip,
+}: TripLogPanelProps) {
   const [form, setForm] = useState<TripLogFormState>(INITIAL_FORM)
 
   const totalLoggedSpend = pastTrips.reduce(
@@ -100,7 +106,7 @@ export function TripLogPanel({ pastTrips, onAddPastTrip }: TripLogPanelProps) {
           </div>
           <div className="entry">
             <small>Total Logged Spend</small>
-            <strong>${totalLoggedSpend.toFixed(0)}</strong>
+            <strong>{formatMoney(totalLoggedSpend, currency)}</strong>
           </div>
         </div>
 
@@ -230,7 +236,9 @@ export function TripLogPanel({ pastTrips, onAddPastTrip }: TripLogPanelProps) {
                   <h3>{trip.name}</h3>
                   <p>{trip.location}</p>
                 </div>
-                <span className="trip-log-spend">Spent ${trip.actualSpend.toFixed(0)}</span>
+                <span className="trip-log-spend">
+                  Spent {formatMoney(trip.actualSpend, currency)}
+                </span>
               </div>
 
               <div className="trip-log-meta">
@@ -243,7 +251,8 @@ export function TripLogPanel({ pastTrips, onAddPastTrip }: TripLogPanelProps) {
                 <div className="entry">
                   <small>Budget vs Spend</small>
                   <strong>
-                    ${trip.budget.toFixed(0)} planned / ${trip.actualSpend.toFixed(0)}
+                    {formatMoney(trip.budget, currency)} planned /{' '}
+                    {formatMoney(trip.actualSpend, currency)}
                   </strong>
                 </div>
               </div>

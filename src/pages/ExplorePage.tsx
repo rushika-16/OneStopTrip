@@ -28,6 +28,7 @@ export function ExplorePage() {
       <main className="page-content">
         <ExplorerPanel
           location={activeLocation}
+          currency={state.plannerInput.budgetCurrency}
           places={state.places}
           bookmarks={state.bookmarks}
           onToggleBookmark={toggleBookmark}

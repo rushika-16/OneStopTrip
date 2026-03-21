@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { summarizeExpenses } from '../services/expenseEngine'
-import { buildDestinationPlans } from '../services/plannerEngine'
+import { generateLiveDestinationPlans } from '../services/plannerEngine'
 import {
   type BudgetTier,
   type Expense,
-  type ExplorerPlace,
   type PastTrip,
   type PlannerInput,
+  type PlannerPlan,
+  type TravelState,
   type TaskCategory,
   type TaskPriority,
-  type TravelState,
 } from '../types/travel'
 
 const STORAGE_KEY = 'onestoptrip-state-v1'
@@ -24,182 +24,81 @@ function createId(prefix: string): string {
   return `${prefix}-${Math.random().toString(36).slice(2, 9)}-${Date.now()}`
 }
 
+function toIsoDate(value: Date): string {
+  return value.toISOString().slice(0, 10)
+}
+
+function defaultTripDates(days: number): { start: string; end: string } {
+  const start = new Date()
+  start.setDate(start.getDate() + 45)
+
+  const end = new Date(start)
+  end.setDate(end.getDate() + Math.max(1, days - 1))
+
+  return {
+    start: toIsoDate(start),
+    end: toIsoDate(end),
+  }
+}
+
 function seedState(): TravelState {
   const plannerInput: PlannerInput = {
-    totalBudget: 2400,
+    totalBudget: 2500,
+    budgetCurrency: 'USD',
     travelDays: 6,
     currentLocation: 'Mumbai',
     targetDestination: '',
-    travelerCount: 3,
-    destinationType: 'beach',
+    travelerCount: 2,
+    tripType: 'leisure',
+    destinationType: 'city',
     travelScope: 'either',
     hasVisa: false,
-    foodPreferences: ['veg', 'halal'],
-    activityPreferences: ['water sports', 'culture walk'],
+    foodPreferences: ['local', 'veg'],
+    activityPreferences: ['culture', 'walking tours'],
     travelMonth: DEFAULT_MONTH,
   }
 
-  const places: ExplorerPlace[] = [
-    {
-      id: 'p1',
-      name: 'Coastal Spice Kitchen',
-      type: 'food',
-      cuisineTags: ['veg', 'halal', 'local'],
-      budgetBand: 'mid',
-      rating: 4.6,
-      distanceKm: 1.2,
-      estimatedCost: 18,
-      mapUrl: 'https://maps.google.com/?q=Coastal+Spice+Kitchen',
-      reviewSnippet: 'Great local flavors and quick service for groups.',
-    },
-    {
-      id: 'p2',
-      name: 'Skyline Kayak Dock',
-      type: 'activities',
-      cuisineTags: [],
-      budgetBand: 'mid',
-      rating: 4.7,
-      distanceKm: 3.4,
-      estimatedCost: 35,
-      mapUrl: 'https://maps.google.com/?q=Skyline+Kayak+Dock',
-      reviewSnippet: 'Sunset kayaking with beginner-friendly guides.',
-    },
-    {
-      id: 'p3',
-      name: 'Old Port Heritage Walk',
-      type: 'attractions',
-      cuisineTags: [],
-      budgetBand: 'low',
-      rating: 4.5,
-      distanceKm: 2.1,
-      estimatedCost: 10,
-      mapUrl: 'https://maps.google.com/?q=Old+Port+Heritage+Walk',
-      reviewSnippet: 'A compact history route with excellent photo stops.',
-    },
-    {
-      id: 'p4',
-      name: 'Green Bowl Vegan Studio',
-      type: 'food',
-      cuisineTags: ['vegan', 'healthy'],
-      budgetBand: 'low',
-      rating: 4.4,
-      distanceKm: 0.9,
-      estimatedCost: 12,
-      mapUrl: 'https://maps.google.com/?q=Green+Bowl+Vegan+Studio',
-      reviewSnippet: 'Reliable vegan choices with clear allergen labels.',
-    },
-  ]
-
-  const pastTrips: PastTrip[] = [
-    {
-      id: 'trip-log-1',
-      name: 'Goa Long Weekend',
-      location: 'North Goa, India',
-      startDate: '2025-11-14',
-      endDate: '2025-11-17',
-      budget: 1800,
-      actualSpend: 1685,
-      travelers: ['Rushika', 'Aarav', 'Mia'],
-      highlights: ['Sunset cruise', 'Anjuna market', 'Beachfront dinner'],
-      notes: 'Kept the itinerary light and stayed close to the beach for easy group movement.',
-    },
-    {
-      id: 'trip-log-2',
-      name: 'Udaipur Culture Escape',
-      location: 'Udaipur, India',
-      startDate: '2025-08-21',
-      endDate: '2025-08-24',
-      budget: 1450,
-      actualSpend: 1390,
-      travelers: ['Rushika', 'Mia'],
-      highlights: ['City Palace', 'Lake Pichola boat ride', 'Old town cafe crawl'],
-      notes: 'Worked well as a short-format trip with most transport handled through one hotel pickup.',
-    },
-    {
-      id: 'trip-log-3',
-      name: 'Istanbul Winter Sprint',
-      location: 'Istanbul, Turkey',
-      startDate: '2025-02-10',
-      endDate: '2025-02-16',
-      budget: 3200,
-      actualSpend: 3015,
-      travelers: ['Rushika', 'Aarav'],
-      highlights: ['Bosporus ferry', 'Grand Bazaar', 'Blue Mosque at sunrise'],
-      notes: 'The museum-heavy days benefited from pre-booked tickets and a tighter neighborhood plan.',
-    },
-  ]
+  const tripDates = defaultTripDates(plannerInput.travelDays)
 
   return {
     trip: {
       id: 'trip-main',
       name: 'OneStopTrip Escape',
       budget: plannerInput.totalBudget,
-      startDate: '2026-06-10',
-      endDate: '2026-06-16',
+      startDate: tripDates.start,
+      endDate: tripDates.end,
       baseLocation: plannerInput.currentLocation,
     },
     participants: [
-      { id: 'u1', name: 'Rushika' },
-      { id: 'u2', name: 'Aarav' },
-      { id: 'u3', name: 'Mia' },
+      { id: 'u1', name: 'Traveler 1' },
+      { id: 'u2', name: 'Traveler 2' },
     ],
     plannerInput,
-    explorerLocation: plannerInput.targetDestination || plannerInput.currentLocation,
-    plans: buildDestinationPlans(plannerInput),
-    selectedTier: 'mid-range',
-    expenses: [
-      {
-        id: createId('exp'),
-        title: 'Initial hotel booking',
-        category: 'accommodation',
-        amount: 720,
-        paidBy: 'u1',
-        splitMode: 'equal',
-        createdAt: new Date().toISOString(),
-      },
-      {
-        id: createId('exp'),
-        title: 'Airport transfer',
-        category: 'transport',
-        amount: 120,
-        paidBy: 'u2',
-        splitMode: 'equal',
-        createdAt: new Date().toISOString(),
-      },
-    ],
-    places,
-    bookmarks: ['p1'],
-    tasks: [
-      {
-        id: createId('task'),
-        title: 'Book outbound flights',
-        category: 'pre-trip',
-        priority: 'high',
-        dueDate: '2026-04-02',
-        assignedTo: 'u1',
-        completed: true,
-      },
-      {
-        id: createId('task'),
-        title: 'Apply for visa documents',
-        category: 'pre-trip',
-        priority: 'high',
-        dueDate: '2026-04-08',
-        assignedTo: 'u2',
-        completed: false,
-      },
-      {
-        id: createId('task'),
-        title: 'Create packing checklist',
-        category: 'pre-trip',
-        priority: 'medium',
-        dueDate: '2026-05-20',
-        assignedTo: 'u3',
-        completed: false,
-      },
-    ],
-    pastTrips,
+    plannerStatus: 'idle',
+    plannerError: null,
+    lastPlanGeneratedAt: null,
+    explorerLocation: plannerInput.currentLocation,
+    plans: [],
+    selectedTier: null,
+    expenses: [],
+    places: [],
+    bookmarks: [],
+    tasks: [],
+    pastTrips: [],
   }
+}
+
+function pickSelectedTier(
+  selected: BudgetTier | null | undefined,
+  plans: PlannerPlan[],
+): BudgetTier | null {
+  if (!selected) {
+    return plans[1]?.tier ?? plans[0]?.tier ?? null
+  }
+
+  return plans.some((plan) => plan.tier === selected)
+    ? selected
+    : plans[1]?.tier ?? plans[0]?.tier ?? null
 }
 
 function normalizeTravelState(value: unknown): TravelState {
@@ -232,6 +131,10 @@ function normalizeTravelState(value: unknown): TravelState {
       ? rawExplorerLocation
       : defaultExplorerLocation
 
+  const normalizedPlans = Array.isArray(rawState.plans) ? rawState.plans : seededState.plans
+  const normalizedSelectedTier = pickSelectedTier(rawState.selectedTier, normalizedPlans)
+  const activePlan = normalizedPlans.find((plan) => plan.tier === normalizedSelectedTier)
+
   return {
     ...seededState,
     ...rawState,
@@ -239,17 +142,33 @@ function normalizeTravelState(value: unknown): TravelState {
       ...seededState.trip,
       ...rawState.trip,
       name: sanitizeTripName(rawState.trip?.name ?? seededState.trip.name),
+      budget:
+        rawState.trip?.budget ??
+        mergedPlannerInput.totalBudget ??
+        seededState.trip.budget,
+      baseLocation:
+        rawState.trip?.baseLocation ??
+        mergedPlannerInput.currentLocation ??
+        seededState.trip.baseLocation,
     },
     plannerInput: mergedPlannerInput,
+    plannerStatus: rawState.plannerStatus ?? seededState.plannerStatus,
+    plannerError: rawState.plannerError ?? seededState.plannerError,
+    lastPlanGeneratedAt:
+      rawState.lastPlanGeneratedAt ?? seededState.lastPlanGeneratedAt,
     explorerLocation: normalizedExplorerLocation,
     participants: Array.isArray(rawState.participants)
       ? rawState.participants
       : seededState.participants,
-    plans: Array.isArray(rawState.plans) ? rawState.plans : seededState.plans,
+    plans: normalizedPlans,
+    selectedTier: normalizedSelectedTier,
     expenses: Array.isArray(rawState.expenses)
       ? rawState.expenses
       : seededState.expenses,
-    places: Array.isArray(rawState.places) ? rawState.places : seededState.places,
+    places:
+      Array.isArray(rawState.places) && rawState.places.length > 0
+        ? rawState.places
+        : activePlan?.places ?? seededState.places,
     bookmarks: Array.isArray(rawState.bookmarks)
       ? rawState.bookmarks
       : seededState.bookmarks,
@@ -257,7 +176,6 @@ function normalizeTravelState(value: unknown): TravelState {
     pastTrips: Array.isArray(rawState.pastTrips)
       ? rawState.pastTrips
       : seededState.pastTrips,
-    selectedTier: rawState.selectedTier ?? seededState.selectedTier,
   }
 }
 
@@ -276,6 +194,14 @@ function loadInitialState(): TravelState {
   } catch {
     return seedState()
   }
+}
+
+function toErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message
+  }
+
+  return 'Unable to generate a live itinerary right now. Please retry in a moment.'
 }
 
 export function useTravelStore() {
@@ -303,28 +229,70 @@ export function useTravelStore() {
   }, [])
 
   const updatePlannerInput = useCallback((patch: Partial<PlannerInput>) => {
-    setState((prev) => ({
-      ...prev,
-      plannerInput: { ...prev.plannerInput, ...patch },
-      trip: {
-        ...prev.trip,
-        budget:
-          patch.totalBudget !== undefined ? patch.totalBudget : prev.trip.budget,
-        baseLocation:
-          patch.currentLocation !== undefined
+    setState((prev) => {
+      const nextInput = { ...prev.plannerInput, ...patch }
+
+      const nextExplorerLocation =
+        patch.targetDestination !== undefined
+          ? patch.targetDestination.trim() || nextInput.currentLocation
+          : patch.currentLocation !== undefined
             ? patch.currentLocation
-            : prev.trip.baseLocation,
-      },
-    }))
+            : prev.explorerLocation
+
+      return {
+        ...prev,
+        plannerInput: nextInput,
+        plannerError: null,
+        trip: {
+          ...prev.trip,
+          budget:
+            patch.totalBudget !== undefined ? patch.totalBudget : prev.trip.budget,
+          baseLocation:
+            patch.currentLocation !== undefined
+              ? patch.currentLocation
+              : prev.trip.baseLocation,
+        },
+        explorerLocation: nextExplorerLocation,
+      }
+    })
   }, [])
 
-  const generatePlans = useCallback(() => {
+  const generatePlans = useCallback(async () => {
+    const plannerInput = state.plannerInput
+    const previousTier = state.selectedTier
+
     setState((prev) => ({
       ...prev,
-      plans: buildDestinationPlans(prev.plannerInput),
-      selectedTier: prev.selectedTier ?? 'mid-range',
+      plannerStatus: 'loading',
+      plannerError: null,
     }))
-  }, [])
+
+    try {
+      const plans = await generateLiveDestinationPlans(plannerInput)
+      const selectedTier = pickSelectedTier(previousTier, plans)
+      const activePlan = plans.find((plan) => plan.tier === selectedTier) ?? plans[0] ?? null
+
+      setState((prev) => ({
+        ...prev,
+        plans,
+        selectedTier,
+        places: activePlan?.places ?? [],
+        explorerLocation:
+          plannerInput.targetDestination?.trim() ||
+          activePlan?.destination.name ||
+          prev.explorerLocation,
+        plannerStatus: 'success',
+        plannerError: null,
+        lastPlanGeneratedAt: new Date().toISOString(),
+      }))
+    } catch (error) {
+      setState((prev) => ({
+        ...prev,
+        plannerStatus: 'error',
+        plannerError: toErrorMessage(error),
+      }))
+    }
+  }, [state.plannerInput, state.selectedTier])
 
   const setExplorerLocation = useCallback((location: string) => {
     setState((prev) => ({
@@ -335,7 +303,16 @@ export function useTravelStore() {
   }, [])
 
   const selectTier = useCallback((tier: BudgetTier) => {
-    setState((prev) => ({ ...prev, selectedTier: tier }))
+    setState((prev) => {
+      const activePlan = prev.plans.find((plan) => plan.tier === tier)
+
+      return {
+        ...prev,
+        selectedTier: tier,
+        places: activePlan?.places ?? prev.places,
+        explorerLocation: activePlan?.destination.name ?? prev.explorerLocation,
+      }
+    })
   }, [])
 
   const addExpense = useCallback(

@@ -5,6 +5,25 @@ export type DestinationType =
   | 'adventure'
   | 'cultural'
 
+export type CurrencyCode =
+  | 'USD'
+  | 'INR'
+  | 'EUR'
+  | 'GBP'
+  | 'JPY'
+  | 'AED'
+  | 'AUD'
+  | 'CAD'
+  | 'CHF'
+  | 'SGD'
+
+export type TripType =
+  | 'family'
+  | 'leisure'
+  | 'business'
+  | 'honeymoon'
+  | 'bachelor'
+
 export type TravelScope = 'domestic' | 'international' | 'either'
 export type BudgetTier = 'budget' | 'mid-range' | 'premium'
 
@@ -19,16 +38,19 @@ export type ExpenseCategory =
 export type SplitMode = 'equal' | 'unequal' | 'percentage'
 
 export type ExplorerType = 'food' | 'activities' | 'attractions'
+export type PlannerGenerationStatus = 'idle' | 'loading' | 'success' | 'error'
 
 export type TaskCategory = 'pre-trip' | 'during-trip' | 'post-trip'
 export type TaskPriority = 'high' | 'medium' | 'low'
 
 export interface PlannerInput {
   totalBudget: number
+  budgetCurrency: CurrencyCode
   travelDays: number
   currentLocation: string
   targetDestination?: string
   travelerCount: number
+  tripType: TripType
   destinationType: DestinationType
   travelScope: TravelScope
   hasVisa: boolean
@@ -41,11 +63,15 @@ export interface DestinationOption {
   id: string
   name: string
   country: string
+  countryCode: string
+  latitude: number
+  longitude: number
+  timezone: string
   scope: Exclude<TravelScope, 'either'>
   type: DestinationType
-  averageDailyCostPerPerson: number
+  popularityScore: number
+  primaryCurrency: CurrencyCode
   visaRequired: boolean
-  seasonMonths: number[]
   foodTags: string[]
   activityTags: string[]
 }
@@ -57,22 +83,39 @@ export interface CostBreakdown {
   activities: number
   total: number
   perPerson: number
+  currency: CurrencyCode
+  totalInUsd: number
+}
+
+export interface ItinerarySlot {
+  time: string
+  activity: string
+  place: string
+  city: string
+  mapUrl: string
+  estimatedCost: number
 }
 
 export interface ItineraryDay {
   day: number
+  city: string
   title: string
   highlights: string[]
+  schedule: ItinerarySlot[]
   estimatedDailyCost: number
 }
 
 export interface PlannerPlan {
   tier: BudgetTier
   destination: DestinationOption
+  route: string[]
   breakdown: CostBreakdown
   itinerary: ItineraryDay[]
+  summary: string
+  isWithinBudget: boolean
   notes: string[]
   budgetOptimizerTips: string[]
+  places: ExplorerPlace[]
 }
 
 export interface Participant {
@@ -156,6 +199,9 @@ export interface TravelState {
   trip: TripMeta
   participants: Participant[]
   plannerInput: PlannerInput
+  plannerStatus: PlannerGenerationStatus
+  plannerError: string | null
+  lastPlanGeneratedAt: string | null
   explorerLocation: string
   plans: PlannerPlan[]
   selectedTier: BudgetTier | null

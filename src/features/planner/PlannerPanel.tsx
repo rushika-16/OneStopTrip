@@ -1,5 +1,7 @@
+import { formatMoney, SUPPORTED_CURRENCIES } from '../../services/currency'
 import {
   type BudgetTier,
+  type PlannerGenerationStatus,
   type PlannerInput,
   type PlannerPlan,
 } from '../../types/travel'
@@ -14,29 +16,23 @@ const SKYSCANNER_AIRPORT_HINTS: Record<string, string> = {
   kolkata: 'CCU',
   pune: 'PNQ',
   goa: 'GOI',
-  manali: 'KUU',
-  jaipur: 'JAI',
-  rishikesh: 'DED',
+  paris: 'PAR',
+  rome: 'ROM',
+  amsterdam: 'AMS',
+  venice: 'VCE',
+  zurich: 'ZRH',
   bangkok: 'BKK',
   bali: 'DPS',
   istanbul: 'IST',
-  miami: 'MIA',
-  maui: 'OGG',
-  aspen: 'ASE',
-  'new york': 'NYCA',
-  moab: 'CNY',
-  'new orleans': 'MSY',
   barcelona: 'BCN',
-  phuket: 'HKT',
-  zurich: 'ZRH',
   kyoto: 'KIX',
-  california: 'SFO',
+  singapore: 'SIN',
 }
 
-function resolveAirportCode(place: string): string | null {
+function resolveAirportCode(place: string): string {
   const normalized = place.trim().toLowerCase()
   if (!normalized) {
-    return null
+    return place
   }
 
   for (const [hint, code] of Object.entries(SKYSCANNER_AIRPORT_HINTS)) {
@@ -45,12 +41,7 @@ function resolveAirportCode(place: string): string | null {
     }
   }
 
-  return null
-}
-
-function toGoogleFlightsDate(isoDate: string): string | null {
-  // Google Flights date format: YYYY-MM-DD (same as ISO)
-  return /^\d{4}-\d{2}-\d{2}$/.test(isoDate) ? isoDate : null
+  return place
 }
 
 function buildFlightUrl(
@@ -59,31 +50,43 @@ function buildFlightUrl(
   outboundDate?: string,
   inboundDate?: string,
 ): string {
-  const fromCode = resolveAirportCode(from) ?? from.trim()
-  const toCode = resolveAirportCode(to) ?? to.trim()
-  const depDate = outboundDate ? toGoogleFlightsDate(outboundDate) : null
-  const retDate = inboundDate ? toGoogleFlightsDate(inboundDate) : null
+  const fromCode = resolveAirportCode(from)
+  const toCode = resolveAirportCode(to)
 
   let url = `https://www.google.com/travel/flights?q=flights+from+${encodeURIComponent(fromCode)}+to+${encodeURIComponent(toCode)}`
 
-  if (depDate) {
-    url += `+on+${depDate}`
+  if (outboundDate) {
+    url += `+on+${outboundDate}`
   }
-  if (retDate) {
-    url += `+returning+${retDate}`
+  if (inboundDate) {
+    url += `+returning+${inboundDate}`
   }
 
   return url
+}
+
+function listToInputValue(items: string[]): string {
+  return items.join(', ')
+}
+
+function parseListValue(value: string): string[] {
+  return value
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
 }
 
 interface PlannerPanelProps {
   input: PlannerInput
   plans: PlannerPlan[]
   selectedTier: BudgetTier | null
+  status: PlannerGenerationStatus
+  errorMessage: string | null
+  lastGeneratedAt: string | null
   tripStartDate: string
   tripEndDate: string
   onInputChange: (patch: Partial<PlannerInput>) => void
-  onGenerate: () => void
+  onGenerate: () => void | Promise<void>
   onSelectTier: (tier: BudgetTier) => void
 }
 
@@ -93,6 +96,9 @@ export function PlannerPanel({
   input,
   plans,
   selectedTier,
+  status,
+  errorMessage,
+  lastGeneratedAt,
   tripStartDate,
   tripEndDate,
   onInputChange,
@@ -101,6 +107,7 @@ export function PlannerPanel({
 }: PlannerPanelProps) {
   const activePlan =
     plans.find((plan) => plan.tier === selectedTier) ?? plans[0] ?? null
+
   const flightUrl = activePlan
     ? buildFlightUrl(
         input.currentLocation,
@@ -116,7 +123,7 @@ export function PlannerPanel({
         <h3>Trip Details</h3>
         <div className="form-grid">
           <label>
-            Budget
+            1. Budget Amount
             <input
               type="number"
               min={100}
@@ -128,36 +135,33 @@ export function PlannerPanel({
           </label>
 
           <label>
-            Days
+            2. Budget Currency
+            <select
+              value={input.budgetCurrency}
+              onChange={(event) =>
+                onInputChange({
+                  budgetCurrency: event.target.value as PlannerInput['budgetCurrency'],
+                })
+              }
+            >
+              {SUPPORTED_CURRENCIES.map((currency) => (
+                <option key={currency} value={currency}>
+                  {currency}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            Duration (Days)
             <input
               type="number"
               min={1}
-              max={30}
+              max={20}
               value={input.travelDays}
               onChange={(event) =>
                 onInputChange({ travelDays: Number(event.target.value) })
               }
-            />
-          </label>
-
-          <label>
-            From
-            <input
-              value={input.currentLocation}
-              onChange={(event) =>
-                onInputChange({ currentLocation: event.target.value })
-              }
-            />
-          </label>
-
-          <label>
-            Destination (Optional)
-            <input
-              value={input.targetDestination ?? ''}
-              onChange={(event) =>
-                onInputChange({ targetDestination: event.target.value })
-              }
-              placeholder="e.g., Mumbai, Bali, Kyoto"
             />
           </label>
 
@@ -175,13 +179,52 @@ export function PlannerPanel({
           </label>
 
           <label>
-            Type
+            From
+            <input
+              value={input.currentLocation}
+              onChange={(event) =>
+                onInputChange({ currentLocation: event.target.value })
+              }
+              placeholder="Your departure city"
+            />
+          </label>
+
+          <label>
+            Destination / Region
+            <input
+              value={input.targetDestination ?? ''}
+              onChange={(event) =>
+                onInputChange({ targetDestination: event.target.value })
+              }
+              placeholder="e.g., Europe, Japan, Paris"
+            />
+          </label>
+
+          <label>
+            Trip Type
+            <select
+              value={input.tripType}
+              onChange={(event) =>
+                onInputChange({
+                  tripType: event.target.value as PlannerInput['tripType'],
+                })
+              }
+            >
+              <option value="family">Family</option>
+              <option value="leisure">Leisure</option>
+              <option value="business">Business</option>
+              <option value="honeymoon">Honeymoon</option>
+              <option value="bachelor">Bachelor</option>
+            </select>
+          </label>
+
+          <label>
+            Destination Style
             <select
               value={input.destinationType}
               onChange={(event) =>
                 onInputChange({
-                  destinationType: event.target
-                    .value as PlannerInput['destinationType'],
+                  destinationType: event.target.value as PlannerInput['destinationType'],
                 })
               }
             >
@@ -208,17 +251,76 @@ export function PlannerPanel({
               <option value="either">Either</option>
             </select>
           </label>
+
+          <label className="inline-checkbox">
+            <input
+              type="checkbox"
+              checked={input.hasVisa}
+              onChange={(event) =>
+                onInputChange({ hasVisa: event.target.checked })
+              }
+            />
+            Visa Ready
+          </label>
+
+          <label>
+            Food Preferences (comma separated)
+            <input
+              value={listToInputValue(input.foodPreferences)}
+              onChange={(event) =>
+                onInputChange({ foodPreferences: parseListValue(event.target.value) })
+              }
+              placeholder="veg, halal, local"
+            />
+          </label>
+
+          <label>
+            Activity Preferences (comma separated)
+            <input
+              value={listToInputValue(input.activityPreferences)}
+              onChange={(event) =>
+                onInputChange({ activityPreferences: parseListValue(event.target.value) })
+              }
+              placeholder="museums, nightlife, hiking"
+            />
+          </label>
         </div>
 
-        <button className="cta" onClick={onGenerate}>
-          Generate Plans
+        <button className="cta" onClick={() => void onGenerate()} disabled={status === 'loading'}>
+          {status === 'loading' ? 'Generating Live Itinerary...' : 'Generate Live Itinerary'}
         </button>
+
+        {lastGeneratedAt ? (
+          <p className="progress-label">
+            Last updated: {new Date(lastGeneratedAt).toLocaleString()}
+          </p>
+        ) : null}
       </div>
+
+      {status === 'loading' ? (
+        <div className="card">
+          <h3>Fetching live travel data...</h3>
+          <p>
+            Pulling destinations, attractions, costs, and currency rates from live
+            sources. This can take up to 20 seconds depending on network/API load.
+          </p>
+        </div>
+      ) : null}
+
+      {errorMessage ? (
+        <div className="card">
+          <h3>Could not build live itinerary</h3>
+          <p className="alert">{errorMessage}</p>
+          <p>
+            Try changing destination scope, verifying city names, or retrying once.
+          </p>
+        </div>
+      ) : null}
 
       {activePlan ? (
         <>
           <div className="card">
-            <h3>Choose Style</h3>
+            <h3>Choose Plan Tier</h3>
             <div className="tier-switch">
               {TIERS.map((tier) => (
                 <button
@@ -232,36 +334,55 @@ export function PlannerPanel({
             </div>
 
             <h4 style={{ marginTop: '0.8rem' }}>
-              {activePlan.destination.name}, {activePlan.destination.country}
+              Primary city: {activePlan.destination.name}, {activePlan.destination.country}
             </h4>
+            <p>{activePlan.summary}</p>
+            <p>
+              Route: <strong>{activePlan.route.join(' -> ')}</strong>
+            </p>
 
             <div className="plan-summary">
               <div>
                 <small>Total</small>
-                <strong>${activePlan.breakdown.total.toFixed(0)}</strong>
+                <strong>
+                  {formatMoney(activePlan.breakdown.total, activePlan.breakdown.currency)}
+                </strong>
               </div>
               <div>
                 <small>Per Person</small>
-                <strong>${activePlan.breakdown.perPerson.toFixed(0)}</strong>
+                <strong>
+                  {formatMoney(activePlan.breakdown.perPerson, activePlan.breakdown.currency)}
+                </strong>
               </div>
             </div>
 
             <div className="cost-breakdown">
               <p>
                 <span>Transport</span>
-                <strong>${activePlan.breakdown.transport.toFixed(0)}</strong>
+                <strong>
+                  {formatMoney(activePlan.breakdown.transport, activePlan.breakdown.currency)}
+                </strong>
               </p>
               <p>
                 <span>Stay</span>
-                <strong>${activePlan.breakdown.accommodation.toFixed(0)}</strong>
+                <strong>
+                  {formatMoney(
+                    activePlan.breakdown.accommodation,
+                    activePlan.breakdown.currency,
+                  )}
+                </strong>
               </p>
               <p>
                 <span>Food</span>
-                <strong>${activePlan.breakdown.food.toFixed(0)}</strong>
+                <strong>
+                  {formatMoney(activePlan.breakdown.food, activePlan.breakdown.currency)}
+                </strong>
               </p>
               <p>
                 <span>Activities</span>
-                <strong>${activePlan.breakdown.activities.toFixed(0)}</strong>
+                <strong>
+                  {formatMoney(activePlan.breakdown.activities, activePlan.breakdown.currency)}
+                </strong>
               </p>
             </div>
 
@@ -271,20 +392,31 @@ export function PlannerPanel({
               target="_blank"
               rel="noreferrer"
             >
-              Check Live Flight Cost on Google Flights
+              Check Flight Pricing on Google Flights
             </a>
           </div>
 
           <div className="card">
-            <h3>Day-by-Day</h3>
+            <h3>Day-by-Day Itinerary</h3>
             <div className="itinerary-compact">
               {activePlan.itinerary.map((day) => (
                 <div key={day.day} className="day-card">
                   <div>
-                    <strong>Day {day.day}</strong>
+                    <strong>
+                      Day {day.day}: {day.city}
+                    </strong>
                     <p>{day.title}</p>
+                    <ul>
+                      {day.schedule.slice(0, 3).map((slot) => (
+                        <li key={`${day.day}-${slot.time}-${slot.place}`}>
+                          {slot.time} - {slot.activity}
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                  <span>${day.estimatedDailyCost.toFixed(0)}</span>
+                  <span>
+                    {formatMoney(day.estimatedDailyCost, activePlan.breakdown.currency)}
+                  </span>
                 </div>
               ))}
             </div>
@@ -292,7 +424,7 @@ export function PlannerPanel({
 
           {activePlan.budgetOptimizerTips.length > 0 ? (
             <div className="card">
-              <h3>Budget Tips</h3>
+              <h3>Budget Guidance</h3>
               <ul>
                 {activePlan.budgetOptimizerTips.map((tip) => (
                   <li key={tip}>{tip}</li>
@@ -303,7 +435,7 @@ export function PlannerPanel({
 
           {activePlan.notes.length > 0 ? (
             <div className="card">
-              <h3>Plan Notes</h3>
+              <h3>Planning Notes</h3>
               <ul>
                 {activePlan.notes.map((note) => (
                   <li key={note}>{note}</li>
@@ -315,7 +447,7 @@ export function PlannerPanel({
       ) : (
         <div className="card">
           <p style={{ textAlign: 'center', color: '#7f9fa4' }}>
-            Set your trip details and tap "Generate Plans" to see options.
+            Enter trip details and generate a live itinerary.
           </p>
         </div>
       )}

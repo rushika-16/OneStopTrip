@@ -246,6 +246,13 @@
   color: #7f9ba4;
 }
 
+.day-card ul {
+  margin: 0.45rem 0 0;
+  padding-left: 1rem;
+  color: #55727a;
+  font-size: 0.85rem;
+}
+
 .day-card span {
   font-weight: 600;
   color: #0f6f80;

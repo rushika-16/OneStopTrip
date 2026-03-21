@@ -19,6 +19,9 @@ export function PlanPage() {
           input={state.plannerInput}
           plans={state.plans}
           selectedTier={state.selectedTier}
+          status={state.plannerStatus}
+          errorMessage={state.plannerError}
+          lastGeneratedAt={state.lastPlanGeneratedAt}
           tripStartDate={state.trip.startDate}
           tripEndDate={state.trip.endDate}
           onInputChange={updatePlannerInput}

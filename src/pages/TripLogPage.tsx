@@ -15,7 +15,11 @@ export function TripLogPage() {
         <h1>Trip Log</h1>
       </header>
       <main className="page-content">
-        <TripLogPanel pastTrips={state.pastTrips} onAddPastTrip={addPastTrip} />
+        <TripLogPanel
+          pastTrips={state.pastTrips}
+          currency={state.plannerInput.budgetCurrency}
+          onAddPastTrip={addPastTrip}
+        />
       </main>
     </div>
   )

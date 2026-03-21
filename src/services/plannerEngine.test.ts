@@ -1,254 +1,356 @@
-import { describe, it, expect } from 'vitest';
-import { buildDestinationPlans } from './plannerEngine';
-import type { PlannerInput } from '../types/travel';
+import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { generateLiveDestinationPlans } from './plannerEngine'
+import { type PlannerInput } from '../types/travel'
+import * as liveTravelData from './liveTravelData'
 
-describe('plannerEngine: buildDestinationPlans', () => {
-  const createInput = (overrides?: Partial<PlannerInput>): PlannerInput => ({
+vi.mock('./liveTravelData', () => ({
+  fetchLiveTravelContext: vi.fn(),
+  estimateCityDailyUsd: vi.fn(),
+}))
+
+const mockedFetchLiveTravelContext = vi.mocked(liveTravelData.fetchLiveTravelContext)
+const mockedEstimateCityDailyUsd = vi.mocked(liveTravelData.estimateCityDailyUsd)
+
+function createInput(overrides: Partial<PlannerInput> = {}): PlannerInput {
+  return {
     totalBudget: 5000,
-    travelDays: 5,
+    budgetCurrency: 'USD',
+    travelDays: 6,
     currentLocation: 'Delhi, India',
     travelerCount: 2,
-    destinationType: 'beach',
+    tripType: 'leisure',
+    destinationType: 'city',
     travelScope: 'either',
-    hasVisa: false,
-    foodPreferences: [],
-    activityPreferences: [],
-    travelMonth: 3, // March
+    hasVisa: true,
+    foodPreferences: ['local'],
+    activityPreferences: ['museum'],
+    travelMonth: 3,
     ...overrides,
-  });
+  }
+}
 
-  it('should return plans for valid input', () => {
-    const input = createInput();
+const mockContext = {
+  budgetCurrency: 'USD' as const,
+  budgetInUsd: 5000,
+  usdToBudgetRate: 1,
+  home: {
+    name: 'Delhi',
+    country: 'India',
+    countryCode: 'IN',
+    latitude: 28.6139,
+    longitude: 77.209,
+  },
+  candidates: [
+    {
+      name: 'Paris',
+      country: 'France',
+      countryCode: 'FR',
+      latitude: 48.8566,
+      longitude: 2.3522,
+      timezone: 'Europe/Paris',
+      population: 2100000,
+      region: 'Europe',
+      primaryCurrency: 'EUR' as const,
+      popularityScore: 9000,
+      costIndex: 1.2,
+      places: [
+        {
+          id: 'paris-attraction-1',
+          name: 'Eiffel Tower',
+          category: 'attractions' as const,
+          latitude: 48.8584,
+          longitude: 2.2945,
+          distanceKm: 3,
+          estimatedCostUsd: 28,
+          mapUrl: 'https://maps.google.com/?q=Eiffel+Tower',
+          summary: 'Iconic attraction',
+          tags: ['museum', 'historic'],
+        },
+        {
+          id: 'paris-food-1',
+          name: 'Riverfront Bistro',
+          category: 'food' as const,
+          latitude: 48.857,
+          longitude: 2.35,
+          distanceKm: 1,
+          estimatedCostUsd: 25,
+          mapUrl: 'https://maps.google.com/?q=Riverfront+Bistro',
+          summary: 'French dining',
+          tags: ['restaurant'],
+        },
+        {
+          id: 'paris-activity-1',
+          name: 'Seine Cruise',
+          category: 'activities' as const,
+          latitude: 48.86,
+          longitude: 2.33,
+          distanceKm: 2,
+          estimatedCostUsd: 35,
+          mapUrl: 'https://maps.google.com/?q=Seine+Cruise',
+          summary: 'Cruise activity',
+          tags: ['romantic'],
+        },
+        {
+          id: 'paris-stay-1',
+          name: 'Paris Central Hotel',
+          category: 'stay' as const,
+          latitude: 48.859,
+          longitude: 2.34,
+          distanceKm: 2.3,
+          estimatedCostUsd: 120,
+          mapUrl: 'https://maps.google.com/?q=Paris+Central+Hotel',
+          summary: 'Hotel option',
+          tags: ['hotel'],
+        },
+      ],
+    },
+    {
+      name: 'Rome',
+      country: 'Italy',
+      countryCode: 'IT',
+      latitude: 41.9028,
+      longitude: 12.4964,
+      timezone: 'Europe/Rome',
+      population: 2800000,
+      region: 'Europe',
+      primaryCurrency: 'EUR' as const,
+      popularityScore: 7800,
+      costIndex: 1.1,
+      places: [
+        {
+          id: 'rome-attraction-1',
+          name: 'Colosseum',
+          category: 'attractions' as const,
+          latitude: 41.8902,
+          longitude: 12.4922,
+          distanceKm: 2,
+          estimatedCostUsd: 26,
+          mapUrl: 'https://maps.google.com/?q=Colosseum',
+          summary: 'Historic site',
+          tags: ['historic', 'culture'],
+        },
+      ],
+    },
+    {
+      name: 'Amsterdam',
+      country: 'Netherlands',
+      countryCode: 'NL',
+      latitude: 52.3676,
+      longitude: 4.9041,
+      timezone: 'Europe/Amsterdam',
+      population: 900000,
+      region: 'Europe',
+      primaryCurrency: 'EUR' as const,
+      popularityScore: 6900,
+      costIndex: 1,
+      places: [
+        {
+          id: 'ams-attraction-1',
+          name: 'Canal District',
+          category: 'attractions' as const,
+          latitude: 52.37,
+          longitude: 4.89,
+          distanceKm: 1.5,
+          estimatedCostUsd: 18,
+          mapUrl: 'https://maps.google.com/?q=Canal+District',
+          summary: 'Canal walk',
+          tags: ['walk', 'romantic'],
+        },
+      ],
+    },
+  ],
+  sources: ['Open-Meteo', 'Overpass'],
+}
 
-    const plans = buildDestinationPlans(input);
+const washingtonScenarioContext = {
+  budgetCurrency: 'USD' as const,
+  budgetInUsd: 5000,
+  usdToBudgetRate: 1,
+  home: {
+    name: 'San Francisco',
+    country: 'United States',
+    countryCode: 'US',
+    latitude: 37.7749,
+    longitude: -122.4194,
+  },
+  candidates: [
+    {
+      name: 'Seattle',
+      country: 'United States',
+      countryCode: 'US',
+      latitude: 47.6062,
+      longitude: -122.3321,
+      timezone: 'America/Los_Angeles',
+      population: 737015,
+      region: 'Americas',
+      primaryCurrency: 'USD' as const,
+      popularityScore: 7800,
+      costIndex: 1,
+      places: [
+        {
+          id: 'sea-attraction-1',
+          name: 'Pike Place Market',
+          category: 'attractions' as const,
+          latitude: 47.6097,
+          longitude: -122.3425,
+          distanceKm: 2.1,
+          estimatedCostUsd: 15,
+          mapUrl: 'https://maps.google.com/?q=Pike+Place+Market',
+          summary: 'Popular market area',
+          tags: ['market', 'city'],
+        },
+        {
+          id: 'sea-activity-1',
+          name: 'Seattle Waterfront Cruise',
+          category: 'activities' as const,
+          latitude: 47.607,
+          longitude: -122.341,
+          distanceKm: 1.8,
+          estimatedCostUsd: 40,
+          mapUrl: 'https://maps.google.com/?q=Seattle+Waterfront+Cruise',
+          summary: 'Scenic waterfront experience',
+          tags: ['waterfront', 'scenic'],
+        },
+        {
+          id: 'sea-food-1',
+          name: 'Cedars Indian Cuisine',
+          category: 'food' as const,
+          latitude: 47.615,
+          longitude: -122.335,
+          distanceKm: 2.3,
+          estimatedCostUsd: 24,
+          mapUrl: 'https://maps.google.com/?q=Cedars+Indian+Cuisine+Seattle',
+          summary: 'Indian dining in Seattle',
+          tags: ['indian', 'vegetarian', 'restaurant'],
+        },
+        {
+          id: 'sea-food-2',
+          name: 'Spice Route Seattle',
+          category: 'food' as const,
+          latitude: 47.618,
+          longitude: -122.331,
+          distanceKm: 3,
+          estimatedCostUsd: 26,
+          mapUrl: 'https://maps.google.com/?q=Spice+Route+Seattle',
+          summary: 'Indian food near downtown Seattle',
+          tags: ['indian', 'north-indian', 'food'],
+        },
+        {
+          id: 'sea-stay-1',
+          name: 'Seattle Downtown Hotel',
+          category: 'stay' as const,
+          latitude: 47.611,
+          longitude: -122.336,
+          distanceKm: 1.9,
+          estimatedCostUsd: 150,
+          mapUrl: 'https://maps.google.com/?q=Seattle+Downtown+Hotel',
+          summary: 'Central stay option',
+          tags: ['hotel'],
+        },
+      ],
+    },
+  ],
+  sources: ['Open-Meteo', 'Overpass'],
+}
 
-    expect(plans).toBeDefined();
-    expect(Array.isArray(plans)).toBe(true);
-    expect(plans.length).toBeGreaterThan(0);
-  });
+beforeEach(() => {
+  mockedFetchLiveTravelContext.mockResolvedValue(mockContext)
+  mockedEstimateCityDailyUsd.mockImplementation((city) => ({
+    stay: Math.max(70, city.costIndex * 80),
+    food: Math.max(35, city.costIndex * 40),
+    activities: Math.max(30, city.costIndex * 36),
+  }))
+})
 
-  it('should return 3 plans (budget, mid-range, premium tiers)', () => {
-    const input = createInput({
-      currentLocation: 'Mumbai, India',
-    });
+describe('plannerEngine: generateLiveDestinationPlans', () => {
+  it('returns budget, mid-range, and premium plans', async () => {
+    const plans = await generateLiveDestinationPlans(createInput())
 
-    const plans = buildDestinationPlans(input);
+    expect(plans.map((plan) => plan.tier)).toEqual([
+      'budget',
+      'mid-range',
+      'premium',
+    ])
+    expect(plans.every((plan) => plan.itinerary.length === 6)).toBe(true)
+  })
 
-    // Should have budget, mid-range, and premium options
-    const tiers = plans.map((p) => p.tier);
-    expect(tiers).toContain('budget');
-    expect(tiers).toContain('mid-range');
-    expect(tiers).toContain('premium');
-  });
-
-  it('should include required plan structure', () => {
-    const input = createInput();
-
-    const plans = buildDestinationPlans(input);
+  it('keeps costs in selected currency and computes totals', async () => {
+    const plans = await generateLiveDestinationPlans(
+      createInput({ budgetCurrency: 'USD', totalBudget: 3200 }),
+    )
 
     plans.forEach((plan) => {
-      expect(plan).toHaveProperty('tier');
-      expect(plan).toHaveProperty('destination');
-      expect(plan).toHaveProperty('breakdown');
-      expect(plan).toHaveProperty('itinerary');
-      expect(plan).toHaveProperty('notes');
-      expect(plan).toHaveProperty('budgetOptimizerTips');
+      expect(plan.breakdown.currency).toBe('USD')
+      expect(plan.breakdown.total).toBeGreaterThan(0)
+      expect(plan.breakdown.perPerson).toBeGreaterThan(0)
+      expect(plan.breakdown.totalInUsd).toBeGreaterThan(0)
+    })
+  })
 
-      // Destination properties
-      expect(plan.destination).toHaveProperty('name');
-      expect(plan.destination).toHaveProperty('country');
-      expect(plan.destination).toHaveProperty('scope');
-
-      // Cost breakdown
-      expect(plan.breakdown).toHaveProperty('accommodation');
-      expect(plan.breakdown).toHaveProperty('food');
-      expect(plan.breakdown).toHaveProperty('activities');
-      expect(plan.breakdown).toHaveProperty('transport');
-      expect(plan.breakdown).toHaveProperty('total');
-      expect(plan.breakdown).toHaveProperty('perPerson');
-
-      // Itinerary
-      expect(Array.isArray(plan.itinerary)).toBe(true);
-      expect(plan.itinerary.length).toBeGreaterThan(0);
-
-      // Notes and tips
-      expect(Array.isArray(plan.notes)).toBe(true);
-      expect(Array.isArray(plan.budgetOptimizerTips)).toBe(true);
-    });
-  });
-
-  it('should return different destinations for different tiers', () => {
-    const input = createInput({
-      currentLocation: 'Bangalore, India',
-    });
-
-    const plans = buildDestinationPlans(input);
-
-    const names = plans.map((p) => p.destination.name);
-    expect(new Set(names).size).toBe(names.length); // All unique
-  });
-
-  it('should respect destination type preference', () => {
-    const input = createInput({
-      destinationType: 'mountains',
-    });
-
-    const plans = buildDestinationPlans(input);
+  it('builds a practical route and adds schedule slots to each day', async () => {
+    const plans = await generateLiveDestinationPlans(createInput({ travelDays: 7 }))
 
     plans.forEach((plan) => {
-      expect(plan.destination.type).toBe('mountains');
-    });
-  });
+      expect(plan.route.length).toBeGreaterThan(0)
+      expect(plan.itinerary).toHaveLength(7)
+      plan.itinerary.forEach((day) => {
+        expect(day.city.length).toBeGreaterThan(0)
+        expect(day.schedule.length).toBeGreaterThan(0)
+        expect(day.schedule[0].time).toMatch(/\d{2}:\d{2}/)
+      })
+    })
+  })
 
-  it('should generate itinerary with correct number of days', () => {
-    const input = createInput({
-      travelDays: 7,
-    });
-
-    const plans = buildDestinationPlans(input);
-
-    plans.forEach((plan) => {
-      expect(plan.itinerary.length).toBe(7);
-      plan.itinerary.forEach((day, index) => {
-        expect(day.day).toBe(index + 1);
-        expect(day.title).toBeDefined();
-        expect(Array.isArray(day.highlights)).toBe(true);
-        expect(day.estimatedDailyCost).toBeGreaterThanOrEqual(0);
-      });
-    });
-  });
-
-  it('should allocate budget correctly in cost breakdown', () => {
-    const input = createInput({
-      totalBudget: 6000,
-      travelDays: 6,
-    });
-
-    const plans = buildDestinationPlans(input);
+  it('adapts summary and notes to trip type', async () => {
+    const plans = await generateLiveDestinationPlans(
+      createInput({ tripType: 'honeymoon' }),
+    )
 
     plans.forEach((plan) => {
-      // Check that total is set
-      expect(plan.breakdown.total).toBeGreaterThan(0);
-      expect(plan.breakdown.perPerson).toBeGreaterThan(0);
+      expect(plan.summary.toLowerCase()).toContain('romantic')
+      expect(plan.notes[0].toLowerCase()).toContain('live')
+      expect(plan.places.length).toBeGreaterThan(0)
+    })
+  })
 
-      // Major categories should have positive values
-      expect(plan.breakdown.accommodation).toBeGreaterThan(0);
-      expect(plan.breakdown.food).toBeGreaterThan(0);
-      expect(plan.breakdown.transport).toBeGreaterThan(0);
-    });
-  });
+  it('creates a 3-day Washington itinerary within 5k budget and surfaces Seattle Indian food', async () => {
+    mockedFetchLiveTravelContext.mockResolvedValueOnce(washingtonScenarioContext)
 
-  it('should include budget tips for all plans', () => {
-    const input = createInput();
-
-    const plans = buildDestinationPlans(input);
-
-    plans.forEach((plan) => {
-      expect(plan.budgetOptimizerTips.length).toBeGreaterThan(0);
-      expect(plan.budgetOptimizerTips[0]).toMatch(/./); // Non-empty string
-    });
-  });
-
-  it('should handle international trips', () => {
-    const input = createInput({
-      currentLocation: 'New York, USA',
-      destinationType: 'city',
-      travelScope: 'international',
-    });
-
-    const plans = buildDestinationPlans(input);
-
-    expect(plans.length).toBeGreaterThan(0);
-    plans.forEach((plan) => {
-      expect(plan.destination).toBeDefined();
-    });
-  });
-
-  it('should handle domestic trips', () => {
-    const input = createInput({
-      currentLocation: 'Delhi, India',
-      destinationType: 'beach',
-      travelScope: 'domestic',
-    });
-
-    const plans = buildDestinationPlans(input);
-
-    expect(plans.length).toBeGreaterThan(0);
-  });
-
-  it('should prioritize requested destination when provided', () => {
-    const input = createInput({
-      destinationType: 'beach',
-      travelScope: 'either',
-      targetDestination: 'Mumbai',
-    });
-
-    const plans = buildDestinationPlans(input);
-
-    expect(plans.length).toBeGreaterThan(0);
-    plans.forEach((plan) => {
-      expect(plan.destination.name).toContain('Mumbai');
-    });
-  });
-
-  it('should fall back to type-based suggestions if requested destination is unknown', () => {
-    const input = createInput({
-      destinationType: 'mountains',
-      targetDestination: 'Atlantis',
-    });
-
-    const plans = buildDestinationPlans(input);
-
-    expect(plans.length).toBeGreaterThan(0);
-    plans.forEach((plan) => {
-      expect(plan.destination.type).toBe('mountains');
-    });
-  });
-
-  it('should adjust cost breakdown for group size', () => {
-    const singleInput = createInput({
-      travelerCount: 1,
-      travelDays: 5,
-      totalBudget: 2000,
-    });
-    const groupInput = createInput({
-      travelerCount: 4,
-      travelDays: 5,
-      totalBudget: 8000,
-    });
-
-    const singlePlans = buildDestinationPlans(singleInput);
-    const groupPlans = buildDestinationPlans(groupInput);
-
-    // Group should have similar or lower per-person accommodation costs
-    const singleAccomPerPerson =
-      singlePlans[0].breakdown.accommodation / singleInput.travelerCount /
-      singleInput.travelDays;
-    const groupAccomPerPerson =
-      groupPlans[0].breakdown.accommodation / groupInput.travelerCount /
-      groupInput.travelDays;
-
-    expect(groupAccomPerPerson).toBeLessThanOrEqual(singleAccomPerPerson * 1.2);
-  });
-
-  it('should include plan notes for all plans', () => {
-    const input = createInput();
-
-    const plans = buildDestinationPlans(input);
+    const plans = await generateLiveDestinationPlans(
+      createInput({
+        totalBudget: 5000,
+        travelDays: 3,
+        currentLocation: 'San Francisco, USA',
+        targetDestination: 'Washington State',
+        travelerCount: 2,
+        tripType: 'leisure',
+        destinationType: 'city',
+        travelScope: 'domestic',
+      }),
+    )
 
     plans.forEach((plan) => {
-      expect(plan.notes.length).toBeGreaterThanOrEqual(0);
-    });
-  });
+      expect(plan.itinerary).toHaveLength(3)
+      expect(plan.breakdown.total).toBeLessThanOrEqual(5000)
+      expect(plan.destination.name).toBe('Seattle')
 
-  it('should handle different travel months', () => {
-    const summerInput = createInput({ travelMonth: 6 });
-    const winterInput = createInput({ travelMonth: 12 });
+      const indianFoodPlaces = plan.places.filter(
+        (place) =>
+          place.type === 'food' &&
+          place.name.toLowerCase().includes('seattle') &&
+          place.cuisineTags.some((tag) => tag.toLowerCase().includes('indian')),
+      )
 
-    const summerPlans = buildDestinationPlans(summerInput);
-    const winterPlans = buildDestinationPlans(winterInput);
-
-    expect(summerPlans.length).toBeGreaterThan(0);
-    expect(winterPlans.length).toBeGreaterThan(0);
-  });
-});
+      expect(indianFoodPlaces.length).toBeGreaterThan(0)
+      expect(
+        plan.itinerary.some((day) =>
+          day.schedule.some(
+            (slot) =>
+              slot.activity.toLowerCase().includes('lunch') &&
+              slot.place.toLowerCase().includes('indian'),
+          ),
+        ),
+      ).toBe(true)
+    })
+  })
+})
