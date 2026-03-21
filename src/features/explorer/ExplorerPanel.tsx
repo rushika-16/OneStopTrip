@@ -91,7 +91,7 @@ export function ExplorerPanel({
   return (
     <section className="panel">
       <div className="card">
-        <h3>Search in {searchLocation || 'your destination'}</h3>
+        <h3>Search Places</h3>
         <div className="form-grid">
           <label>
             Location

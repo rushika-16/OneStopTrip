@@ -361,12 +361,13 @@ describe('App integration', () => {
       target: { value: 'Tokyo' },
     })
 
-    expect(screen.getByText('Search in Tokyo')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Search Places' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Location')).toHaveValue('Tokyo')
 
     fireEvent.click(screen.getByRole('button', { name: /back/i }))
     clickModule('Explore')
 
-    expect(await screen.findByText('Search in Tokyo')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Search Places' })).toBeInTheDocument()
     expect(screen.getByLabelText('Location')).toHaveValue('Tokyo')
 
     fireEvent.change(screen.getByLabelText('What to find?'), {
@@ -396,7 +397,7 @@ describe('App integration', () => {
 
     clickModule('Explore')
 
-    expect(await screen.findByText('Search in Pune')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Search Places' })).toBeInTheDocument()
     expect(screen.getByLabelText('Location')).toHaveValue('Pune')
   })
 
