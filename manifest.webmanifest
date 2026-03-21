@@ -1,0 +1,16 @@
+{
+  "name": "OneStopTrip",
+  "short_name": "OneStopTrip",
+  "description": "One-stop intelligent travel planning, expense management, and trip coordination app.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#e6f4f8",
+  "theme_color": "#1d6d79",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
