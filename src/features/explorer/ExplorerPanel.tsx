@@ -150,31 +150,21 @@ export function ExplorerPanel({
           </label>
         </div>
 
-        <div style={{ marginTop: '1rem' }}>
+        <div className="explorer-actions">
           <button
-            className="cta"
+            className="cta explorer-search-btn"
             onClick={triggerSearch}
             disabled={isSearching || !searchLocation.trim()}
-            style={{ minWidth: '140px' }}
           >
             {isSearching ? 'Searching…' : 'Search Places'}
           </button>
 
           {liveResults !== null ? (
             <button
+              className="explorer-reset-btn"
               onClick={() => {
                 setLiveResults(null)
                 setSearchError(null)
-              }}
-              style={{
-                marginLeft: '0.6rem',
-                border: '1px solid #b8d0d9',
-                borderRadius: '0.75rem',
-                background: '#fff',
-                color: '#2f5863',
-                padding: '0.64rem 0.9rem',
-                fontWeight: 600,
-                cursor: 'pointer',
               }}
             >
               Use Planned Places
@@ -190,67 +180,49 @@ export function ExplorerPanel({
       </div>
 
       <div className="card">
-        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.4rem' }}>
-          <h3 style={{ margin: 0 }}>
+        <div className="explorer-results-header">
+          <h3 className="explorer-results-title">
             {isSearching
               ? 'Fetching live places…'
               : `Found ${filtered.length} place${filtered.length !== 1 ? 's' : ''}`}
           </h3>
           {!isSearching && activePlaces.length > 0 && (
-            <span style={{ fontSize: '0.78rem', color: '#fff', background: liveResults ? '#0f7d87' : '#7f9ba4', borderRadius: '0.5rem', padding: '0.2rem 0.55rem' }}>
+            <span
+              className={`explorer-source-badge ${liveResults ? 'explorer-source-badge-live' : 'explorer-source-badge-plan'}`}
+            >
               {liveResults ? 'Live search' : 'From your plan'}
             </span>
           )}
         </div>
         {filtered.length > 0 ? (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }}>
+          <div className="explorer-results-list">
             {filtered.map((place) => {
               const isBookmarked = bookmarks.includes(place.id)
               return (
                 <article
                   key={place.id}
-                  style={{
-                    padding: '1rem',
-                    backgroundColor: '#f8f9fa',
-                    borderRadius: '0.8rem',
-                    borderLeft: '3px solid #5eb3a6',
-                  }}
+                  className="explorer-place-card"
                 >
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'start',
-                      marginBottom: '0.5rem',
-                    }}
-                  >
+                  <div className="explorer-place-head">
                     <strong>{place.name}</strong>
-                    <span
-                      style={{
-                        fontSize: '0.8rem',
-                        color: '#666',
-                        backgroundColor: '#e8f5f3',
-                        padding: '0.3rem 0.6rem',
-                        borderRadius: '0.4rem',
-                      }}
-                    >
+                    <span className="explorer-type-badge">
                       {place.type.charAt(0).toUpperCase() + place.type.slice(1)}
                     </span>
                   </div>
-                  <p style={{ fontSize: '0.9rem', color: '#666', marginBottom: '0.75rem' }}>
+                  <p className="explorer-place-meta">
                     {`Rating ${place.rating.toFixed(1)} • ${place.distanceKm.toFixed(1)}km • ~${formatMoney(place.estimatedCost, currency)}`}
                   </p>
-                  <p style={{ fontSize: '0.9rem', marginBottom: '0.75rem', lineHeight: 1.4 }}>
+                  <p className="explorer-place-review">
                     {place.reviewSnippet}
                   </p>
                   {place.cuisineTags.length > 0 && (
-                    <p style={{ fontSize: '0.85rem', color: '#888', marginBottom: '0.75rem' }}>
+                    <p className="explorer-place-cuisines">
                       {place.cuisineTags.join(' • ')}
                     </p>
                   )}
-                  <div style={{ display: 'flex', gap: '0.6rem' }}>
+                  <div className="explorer-place-actions">
                     <button
-                      className="cta"
+                      className="cta explorer-save-btn"
                       style={{
                         flex: 1,
                         padding: '0.6rem',
@@ -267,15 +239,7 @@ export function ExplorerPanel({
                       href={buildMapUrl(place.name)}
                       target="_blank"
                       rel="noreferrer"
-                      style={{
-                        padding: '0.6rem 1rem',
-                        borderRadius: '0.5rem',
-                        backgroundColor: '#f0f0f0',
-                        textDecoration: 'none',
-                        fontSize: '0.9rem',
-                        display: 'flex',
-                        alignItems: 'center',
-                      }}
+                      className="explorer-map-link"
                     >
                       Maps
                     </a>
@@ -285,7 +249,7 @@ export function ExplorerPanel({
             })}
           </div>
         ) : (
-          <p style={{ textAlign: 'center', color: '#999', padding: '2rem 0', fontSize: '0.9rem' }}>
+          <p className="explorer-empty-state">
             {liveResults === null
               ? 'Enter a location above and click "Search Places" to discover live spots.'
               : 'No places matched your filters. Try adjusting the filters or search a different location.'}
