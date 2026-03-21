@@ -7,8 +7,15 @@ export function HomePage() {
   const navigate = useNavigate()
   const { state } = useTravelStore()
 
+  const planBadge =
+    state.plannerStatus === 'loading'
+      ? '⏳ Generating…'
+      : state.plans.length > 0
+        ? `✓ Plan ready · ${state.plans[0]?.destination?.name ?? ''}`
+        : null
+
   const modules = [
-    { id: 'plan', label: 'Plan', icon: '✈️', desc: 'Smart itinerary builder' },
+    { id: 'plan', label: 'Plan', icon: '✈️', desc: planBadge ?? 'Smart itinerary builder' },
     {
       id: 'track',
       label: 'Track',
@@ -78,7 +85,7 @@ export function HomePage() {
           {modules.map((module) => (
             <button
               key={module.id}
-              className="module-card"
+              className={`module-card${module.id === 'plan' && state.plans.length > 0 ? ' module-card--active' : ''}`}
               onClick={() => navigate(`/${module.id}`)}
             >
               <div className="module-icon">{module.icon}</div>

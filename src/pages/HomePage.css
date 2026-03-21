@@ -120,6 +120,16 @@
   transform: translateY(-1px);
 }
 
+.module-card--active {
+  border-color: #1a8f9c;
+  background: linear-gradient(
+    150deg,
+    rgba(240, 252, 255, 0.95),
+    rgba(220, 248, 252, 0.9)
+  );
+  box-shadow: 0 4px 16px rgba(15, 111, 128, 0.18);
+}
+
 .module-icon {
   font-size: 2rem;
 }

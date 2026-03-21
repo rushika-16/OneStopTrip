@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { formatMoney } from '../../services/currency'
-import { filterPlaces } from '../../services/explorerEngine'
+import { filterPlaces, searchLivePlaces } from '../../services/explorerEngine'
 import {
   type CurrencyCode,
   type ExplorerPlace,
@@ -29,14 +29,44 @@ export function ExplorerPanel({
   const [type, setType] = useState<ExplorerType | 'all'>('all')
   const [cuisine, setCuisine] = useState('')
   const [budgetBand, setBudgetBand] = useState<'all' | 'low' | 'mid' | 'high'>('all')
+  const [liveResults, setLiveResults] = useState<ExplorerPlace[] | null>(null)
+  const [isSearching, setIsSearching] = useState(false)
+  const [searchError, setSearchError] = useState<string | null>(null)
 
   useEffect(() => {
     setSearchLocation(location)
   }, [location])
 
-  useEffect(() => {
-    onLocationChange(searchLocation)
+  const handleLocationInput = (val: string) => {
+    setSearchLocation(val)
+    onLocationChange(val)
+    setLiveResults(null)
+    setSearchError(null)
+  }
+
+  const triggerSearch = useCallback(async () => {
+    const target = searchLocation.trim()
+    if (!target) return
+    setIsSearching(true)
+    setSearchError(null)
+    try {
+      const { places: fetched, cityLabel } = await searchLivePlaces(target)
+      if (fetched.length === 0) {
+        setSearchError(`No places found for "${cityLabel || target}". Try a different location.`)
+        setLiveResults([])
+      } else {
+        setLiveResults(fetched)
+        onLocationChange(target)
+      }
+    } catch {
+      setSearchError('Could not fetch places right now. Check your connection and try again.')
+      setLiveResults(null)
+    } finally {
+      setIsSearching(false)
+    }
   }, [searchLocation, onLocationChange])
+
+  const activePlaces = liveResults ?? places
 
   const normalizedLocation = searchLocation.trim()
 
@@ -47,7 +77,7 @@ export function ExplorerPanel({
 
   const filtered = useMemo(
     () =>
-      filterPlaces(places, {
+      filterPlaces(activePlaces, {
         query,
         type,
         cuisine,
@@ -55,7 +85,7 @@ export function ExplorerPanel({
         minimumRating: 3,
         maxDistanceKm: 15,
       }),
-    [places, query, type, cuisine, budgetBand],
+    [activePlaces, query, type, cuisine, budgetBand],
   )
 
   return (
@@ -67,7 +97,8 @@ export function ExplorerPanel({
             Location
             <input
               value={searchLocation}
-              onChange={(event) => setSearchLocation(event.target.value)}
+              onChange={(event) => handleLocationInput(event.target.value)}
+              onKeyDown={(event) => { if (event.key === 'Enter') triggerSearch() }}
               placeholder="City, region, or neighborhood"
             />
           </label>
@@ -118,12 +149,59 @@ export function ExplorerPanel({
             </select>
           </label>
         </div>
+
+        <div style={{ marginTop: '1rem' }}>
+          <button
+            className="cta"
+            onClick={triggerSearch}
+            disabled={isSearching || !searchLocation.trim()}
+            style={{ minWidth: '140px' }}
+          >
+            {isSearching ? 'Searching…' : 'Search Places'}
+          </button>
+
+          {liveResults !== null ? (
+            <button
+              onClick={() => {
+                setLiveResults(null)
+                setSearchError(null)
+              }}
+              style={{
+                marginLeft: '0.6rem',
+                border: '1px solid #b8d0d9',
+                borderRadius: '0.75rem',
+                background: '#fff',
+                color: '#2f5863',
+                padding: '0.64rem 0.9rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              Use Planned Places
+            </button>
+          ) : null}
+        </div>
+
+        {searchError && (
+          <p style={{ marginTop: '0.75rem', color: '#c0392b', fontSize: '0.9rem' }}>
+            {searchError}
+          </p>
+        )}
       </div>
 
       <div className="card">
-        <h3 style={{ marginBottom: '1rem' }}>
-          Found {filtered.length} place{filtered.length !== 1 ? 's' : ''}
-        </h3>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.4rem' }}>
+          <h3 style={{ margin: 0 }}>
+            {isSearching
+              ? 'Fetching live places…'
+              : `Found ${filtered.length} place${filtered.length !== 1 ? 's' : ''}`}
+          </h3>
+          {!isSearching && activePlaces.length > 0 && (
+            <span style={{ fontSize: '0.78rem', color: '#fff', background: liveResults ? '#0f7d87' : '#7f9ba4', borderRadius: '0.5rem', padding: '0.2rem 0.55rem' }}>
+              {liveResults ? 'Live search' : 'From your plan'}
+            </span>
+          )}
+        </div>
         {filtered.length > 0 ? (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }}>
             {filtered.map((place) => {
@@ -208,7 +286,9 @@ export function ExplorerPanel({
           </div>
         ) : (
           <p style={{ textAlign: 'center', color: '#999', padding: '2rem 0', fontSize: '0.9rem' }}>
-            No places matched your filters. Try different search terms.
+            {liveResults === null
+              ? 'Enter a location above and click "Search Places" to discover live spots.'
+              : 'No places matched your filters. Try adjusting the filters or search a different location.'}
           </p>
         )}
       </div>

@@ -72,6 +72,18 @@ function createTasks(): TripTask[] {
   ]
 }
 
+function createExpenses(count: number) {
+  return Array.from({ length: count }, (_, index) => ({
+    id: `exp-${index + 1}`,
+    title: `Expense ${index + 1}`,
+    category: 'food' as const,
+    amount: 10 * (index + 1),
+    paidBy: 'u1',
+    splitMode: 'equal' as const,
+    createdAt: new Date().toISOString(),
+  }))
+}
+
 function createPlan(currency: PlannerInput['budgetCurrency']): PlannerPlan {
   const places = createPlaces()
 
@@ -237,6 +249,40 @@ describe('App integration', () => {
     expect(screen.getByText('Goa')).toBeInTheDocument()
   })
 
+  it('disables itinerary generation when required planner fields are invalid', async () => {
+    renderApp()
+
+    clickModule('Plan')
+    expect(await screen.findByRole('heading', { name: 'Plan Your Trip' })).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('From'), {
+      target: { value: '' },
+    })
+
+    const generateButton = screen.getByRole('button', {
+      name: 'Generate Live Itinerary',
+    })
+    expect(generateButton).toBeDisabled()
+    expect(
+      screen.getByText('Add your departure city to generate an itinerary.'),
+    ).toBeInTheDocument()
+  })
+
+  it('provides smooth CTA navigation from plan results to explore and track pages', async () => {
+    renderApp()
+
+    clickModule('Plan')
+    expect(await screen.findByRole('heading', { name: 'Plan Your Trip' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /explore destination/i }))
+    expect(await screen.findByRole('heading', { name: 'Explore Destination' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /back/i }))
+    clickModule('Plan')
+    fireEvent.click(screen.getByRole('button', { name: /track your budget/i }))
+    expect(await screen.findByRole('heading', { name: 'Track Expenses' })).toBeInTheDocument()
+  })
+
   it('adds an expense and refreshes the budget summary', async () => {
     renderApp({
       trip: {
@@ -269,6 +315,40 @@ describe('App integration', () => {
     expect(screen.getAllByText('$120').length).toBeGreaterThan(0)
     expect(screen.getByText('Recent Expenses')).toBeInTheDocument()
     expect(screen.getByText('12% used')).toBeInTheDocument()
+  })
+
+  it('requires positive share values for percentage split mode before adding expenses', async () => {
+    renderApp({ expenses: [] })
+
+    clickModule('Track')
+    expect(await screen.findByRole('heading', { name: 'Track Expenses' })).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('What?'), {
+      target: { value: 'Boat Ride' },
+    })
+    fireEvent.change(screen.getByLabelText('Amount'), {
+      target: { value: '90' },
+    })
+    fireEvent.change(screen.getByLabelText('Split Mode'), {
+      target: { value: 'percentage' },
+    })
+
+    const addButton = screen.getByRole('button', { name: 'Add Expense' })
+    expect(addButton).toBeDisabled()
+    expect(
+      screen.getByText('Enter at least one positive share value before adding this expense.'),
+    ).toBeInTheDocument()
+  })
+
+  it('supports expanding and collapsing the recent expense list', async () => {
+    renderApp({ expenses: createExpenses(6) })
+
+    clickModule('Track')
+    expect(await screen.findByRole('heading', { name: 'Track Expenses' })).toBeInTheDocument()
+
+    expect(screen.getByRole('button', { name: '▼ Show all 6 expenses' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '▼ Show all 6 expenses' }))
+    expect(screen.getByRole('button', { name: '▲ Show less' })).toBeInTheDocument()
   })
 
   it('filters places and toggles bookmarks in the explorer', async () => {
@@ -385,5 +465,40 @@ describe('App integration', () => {
     fireEvent.click(screen.getByRole('button', { name: /back/i }))
 
     expect(await screen.findByText('1 trips saved')).toBeInTheDocument()
+  })
+
+  it('blocks trip log submission for invalid date ranges', async () => {
+    renderApp({ pastTrips: [] })
+
+    clickModule('Trip Log')
+    expect(await screen.findByRole('heading', { name: 'Trip Log' })).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('Trip Name'), {
+      target: { value: 'Bad Date Trip' },
+    })
+    fireEvent.change(screen.getByLabelText('Location'), {
+      target: { value: 'Test City' },
+    })
+    fireEvent.change(screen.getByLabelText('Start Date'), {
+      target: { value: '2026-06-20' },
+    })
+    fireEvent.change(screen.getByLabelText('End Date'), {
+      target: { value: '2026-06-10' },
+    })
+    fireEvent.change(screen.getByLabelText('Planned Budget'), {
+      target: { value: '1000' },
+    })
+    fireEvent.change(screen.getByLabelText('Actual Spend'), {
+      target: { value: '900' },
+    })
+    fireEvent.change(screen.getByLabelText('Travelers'), {
+      target: { value: 'Rushika' },
+    })
+    fireEvent.change(screen.getByLabelText('Highlights'), {
+      target: { value: 'Beach walk' },
+    })
+
+    expect(screen.getByRole('button', { name: 'Save to Trip Log' })).toBeDisabled()
+    expect(screen.getByText('End date must be on or after the start date.')).toBeInTheDocument()
   })
 })

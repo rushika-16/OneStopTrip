@@ -6,6 +6,7 @@ export function PlanPage() {
   const navigate = useNavigate()
   const { state, updatePlannerInput, generatePlans, selectTier } = useTravelStore()
 
+
   return (
     <div className="page-wrapper">
       <header className="page-header">
@@ -27,6 +28,7 @@ export function PlanPage() {
           onInputChange={updatePlannerInput}
           onGenerate={generatePlans}
           onSelectTier={selectTier}
+          onNavigateTo={navigate}
         />
       </main>
     </div>

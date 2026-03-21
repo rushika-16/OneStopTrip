@@ -38,6 +38,8 @@ export function ExpensePanel({
   const [excludedSplitMembers, setExcludedSplitMembers] = useState<string[]>([])
   const [shares, setShares] = useState<Record<string, number>>({})
 
+  const [showAllExpenses, setShowAllExpenses] = useState(false)
+
   const splitWith = useMemo(() => {
     const participantIds = participants.map((participant) => participant.id)
     return participantIds.filter((id) => !excludedSplitMembers.includes(id))
@@ -54,11 +56,18 @@ export function ExpensePanel({
 
   const remainingBudget = budget - summary.totalSpent
 
+  const shareTotal = Object.values(normalizedShares).reduce(
+    (sum, value) => sum + (Number.isFinite(value) ? value : 0),
+    0,
+  )
+  const hasValidSplitShares = splitMode === 'equal' || shareTotal > 0
+
   const canSubmit =
     title.trim().length > 1 &&
     amount > 0 &&
     paidBy.length > 0 &&
-    splitWith.length > 0
+    splitWith.length > 0 &&
+    hasValidSplitShares
 
   const toggleSplitParticipant = (participantId: string) => {
     setExcludedSplitMembers((previous) =>
@@ -187,6 +196,19 @@ export function ExpensePanel({
                 ))}
             </div>
           ) : null}
+
+          {splitMode !== 'equal' && !hasValidSplitShares ? (
+            <p className="alert" style={{ marginTop: '0.6rem' }}>
+              Enter at least one positive share value before adding this expense.
+            </p>
+          ) : null}
+
+          {splitMode === 'percentage' && hasValidSplitShares ? (
+            <p className="progress-label" style={{ marginTop: '0.6rem' }}>
+              Current percentage total: {shareTotal.toFixed(0)}%
+            </p>
+          ) : null}
+
           <button className="cta" disabled={!canSubmit} onClick={handleSubmit}>
             Add Expense
           </button>
@@ -273,7 +295,7 @@ export function ExpensePanel({
         <div className="card">
           <h3>Recent Expenses</h3>
           <div className="expense-list">
-            {expenses.slice(0, 5).map((expense) => (
+            {(showAllExpenses ? expenses : expenses.slice(0, 5)).map((expense) => (
               <div key={expense.id} className="expense-item">
                 <div>
                   <strong>{expense.title}</strong>
@@ -283,6 +305,14 @@ export function ExpensePanel({
               </div>
             ))}
           </div>
+          {expenses.length > 5 ? (
+            <button
+              onClick={() => setShowAllExpenses((prev) => !prev)}
+              style={{ marginTop: '0.6rem', background: 'none', border: 'none', color: '#0f7d87', fontSize: '0.86rem', cursor: 'pointer', padding: 0 }}
+            >
+              {showAllExpenses ? '▲ Show less' : `▼ Show all ${expenses.length} expenses`}
+            </button>
+          ) : null}
         </div>
       ) : null}
     </section>

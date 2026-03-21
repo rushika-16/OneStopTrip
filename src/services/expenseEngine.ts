@@ -51,10 +51,12 @@ function percentageShare(
   }
 
   const percentTotal = participantIds.reduce((sum, id) => sum + (shares[id] ?? 0), 0)
-  const safeDivisor = percentTotal <= EPSILON ? 100 : percentTotal
+  if (percentTotal <= EPSILON) {
+    return equalShare(amount, participantIds)
+  }
 
   return participantIds.reduce<Record<string, number>>((acc, id) => {
-    const ratio = (shares[id] ?? 0) / safeDivisor
+    const ratio = (shares[id] ?? 0) / percentTotal
     acc[id] = amount * ratio
     return acc
   }, {})
@@ -149,16 +151,32 @@ export function summarizeExpenses(
   totalBudget: number,
 ): ExpenseSummary {
   const participantIds = participants.map((participant) => participant.id)
+  const categoryTotals = initCategoryTotals()
+  const totalSpent = expenses.reduce((sum, expense) => {
+    categoryTotals[expense.category] += expense.amount
+    return sum + expense.amount
+  }, 0)
+  const budgetUsedPercent = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0
+
+  if (participantIds.length === 0) {
+    return {
+      totalSpent: normalize(totalSpent),
+      budgetUsedPercent: normalize(budgetUsedPercent),
+      categoryTotals: Object.fromEntries(
+        Object.entries(categoryTotals).map(([key, value]) => [key, normalize(value)]),
+      ) as Record<ExpenseCategory, number>,
+      netBalances: {},
+      settlements: [],
+      alert: budgetAlert(budgetUsedPercent),
+    }
+  }
+
   const netBalances = participantIds.reduce<Record<string, number>>((acc, id) => {
     acc[id] = 0
     return acc
   }, {})
 
-  const categoryTotals = initCategoryTotals()
-
   for (const expense of expenses) {
-    categoryTotals[expense.category] += expense.amount
-
     const splitParticipants =
       expense.splitWith?.filter((id) => participantIds.includes(id)) ?? participantIds
     const effectiveSplitParticipants =
@@ -169,11 +187,14 @@ export function summarizeExpenses(
       netBalances[id] -= shares[id] ?? 0
     }
 
-    netBalances[expense.paidBy] += expense.amount
-  }
+    const payerId = participantIds.includes(expense.paidBy)
+      ? expense.paidBy
+      : effectiveSplitParticipants[0]
 
-  const totalSpent = expenses.reduce((sum, expense) => sum + expense.amount, 0)
-  const budgetUsedPercent = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0
+    if (payerId) {
+      netBalances[payerId] += expense.amount
+    }
+  }
 
   return {
     totalSpent: normalize(totalSpent),

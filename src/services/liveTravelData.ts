@@ -959,3 +959,43 @@ export function estimateCityDailyUsd(city: LiveCityCandidate): {
     activities: (activityMedian || 21 * city.costIndex) * 1.1,
   }
 }
+
+/**
+ * Geocode a city name and fetch live POIs from OpenStreetMap Overpass.
+ * Used by the Explorer panel for on-demand location searches.
+ */
+export async function fetchExplorerPlaces(
+  cityName: string,
+): Promise<{ places: LivePointOfInterest[]; cityLabel: string }> {
+  const query = cityName.trim()
+  if (!query) {
+    return { places: [], cityLabel: '' }
+  }
+
+  const geoResults = await geocode(query, 1)
+  const first = geoResults[0]
+  if (!first) {
+    return { places: [], cityLabel: query }
+  }
+
+  const country = await fetchCountryByCode(first.country_code)
+  const currency = extractPrimaryCurrency(country)
+  const costIndex = await fetchCostIndex(first.country_code, currency)
+
+  const rawCandidate: RawCityCandidate = {
+    name: first.name,
+    country: country?.name?.common ?? first.country,
+    countryCode: first.country_code,
+    latitude: first.latitude,
+    longitude: first.longitude,
+    timezone: first.timezone ?? 'UTC',
+    population: first.population ?? 0,
+    region: country?.region ?? '',
+    primaryCurrency: currency,
+  }
+
+  const points = await fetchOverpassPoints(rawCandidate, costIndex)
+  const cityLabel = `${first.name}${first.country ? `, ${first.country}` : ''}`
+
+  return { places: points, cityLabel }
+}

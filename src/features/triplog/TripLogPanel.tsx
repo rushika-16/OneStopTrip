@@ -59,19 +59,55 @@ export function TripLogPanel({
   onAddPastTrip,
 }: TripLogPanelProps) {
   const [form, setForm] = useState<TripLogFormState>(INITIAL_FORM)
+  const [formError, setFormError] = useState<string | null>(null)
 
   const totalLoggedSpend = pastTrips.reduce(
     (sum, trip) => sum + trip.actualSpend,
     0,
   )
 
+  const parsedTravelers = parseList(form.travelers)
+  const parsedHighlights = parseList(form.highlights)
+  const isDateRangeInvalid =
+    form.startDate.length > 0 &&
+    form.endDate.length > 0 &&
+    form.endDate < form.startDate
+
+  const canSubmit =
+    form.name.trim().length > 0 &&
+    form.location.trim().length > 0 &&
+    form.startDate.length > 0 &&
+    form.endDate.length > 0 &&
+    form.budget.length > 0 &&
+    form.actualSpend.length > 0 &&
+    Number(form.budget) >= 0 &&
+    Number(form.actualSpend) >= 0 &&
+    parsedTravelers.length > 0 &&
+    parsedHighlights.length > 0 &&
+    !isDateRangeInvalid
+
+  const updateField = (field: keyof TripLogFormState, value: string) => {
+    setForm((prev) => ({ ...prev, [field]: value }))
+    if (formError) {
+      setFormError(null)
+    }
+  }
+
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
 
-    const travelers = parseList(form.travelers)
-    const highlights = parseList(form.highlights)
+    if (isDateRangeInvalid) {
+      setFormError('End date must be on or after the start date.')
+      return
+    }
 
-    if (!travelers.length || !highlights.length) {
+    if (!parsedTravelers.length || !parsedHighlights.length) {
+      setFormError('Add at least one traveler and one highlight.')
+      return
+    }
+
+    if (!canSubmit) {
+      setFormError('Complete all required trip details before saving.')
       return
     }
 
@@ -82,12 +118,13 @@ export function TripLogPanel({
       endDate: form.endDate,
       budget: Number(form.budget),
       actualSpend: Number(form.actualSpend),
-      travelers,
-      highlights,
+      travelers: parsedTravelers,
+      highlights: parsedHighlights,
       notes: form.notes.trim(),
     })
 
     setForm(INITIAL_FORM)
+    setFormError(null)
   }
 
   return (
@@ -117,9 +154,7 @@ export function TripLogPanel({
               <input
                 required
                 value={form.name}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, name: event.target.value }))
-                }
+                onChange={(event) => updateField('name', event.target.value)}
               />
             </label>
 
@@ -128,9 +163,7 @@ export function TripLogPanel({
               <input
                 required
                 value={form.location}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, location: event.target.value }))
-                }
+                onChange={(event) => updateField('location', event.target.value)}
               />
             </label>
 
@@ -140,9 +173,7 @@ export function TripLogPanel({
                 required
                 type="date"
                 value={form.startDate}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, startDate: event.target.value }))
-                }
+                onChange={(event) => updateField('startDate', event.target.value)}
               />
             </label>
 
@@ -152,9 +183,7 @@ export function TripLogPanel({
                 required
                 type="date"
                 value={form.endDate}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, endDate: event.target.value }))
-                }
+                onChange={(event) => updateField('endDate', event.target.value)}
               />
             </label>
 
@@ -165,9 +194,7 @@ export function TripLogPanel({
                 min={0}
                 type="number"
                 value={form.budget}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, budget: event.target.value }))
-                }
+                onChange={(event) => updateField('budget', event.target.value)}
               />
             </label>
 
@@ -178,9 +205,7 @@ export function TripLogPanel({
                 min={0}
                 type="number"
                 value={form.actualSpend}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, actualSpend: event.target.value }))
-                }
+                onChange={(event) => updateField('actualSpend', event.target.value)}
               />
             </label>
 
@@ -190,9 +215,7 @@ export function TripLogPanel({
                 required
                 placeholder="Rushika, Aarav, Mia"
                 value={form.travelers}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, travelers: event.target.value }))
-                }
+                onChange={(event) => updateField('travelers', event.target.value)}
               />
             </label>
 
@@ -202,9 +225,7 @@ export function TripLogPanel({
                 required
                 placeholder="Sunrise hike, local food crawl"
                 value={form.highlights}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, highlights: event.target.value }))
-                }
+                onChange={(event) => updateField('highlights', event.target.value)}
               />
             </label>
 
@@ -214,14 +235,18 @@ export function TripLogPanel({
                 rows={4}
                 placeholder="What worked well, what you would repeat, or what to avoid next time."
                 value={form.notes}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, notes: event.target.value }))
-                }
+                onChange={(event) => updateField('notes', event.target.value)}
               />
             </label>
           </div>
 
-          <button className="cta" type="submit">
+          {isDateRangeInvalid ? (
+            <p className="alert">End date must be on or after the start date.</p>
+          ) : null}
+
+          {formError ? <p className="alert">{formError}</p> : null}
+
+          <button className="cta" type="submit" disabled={!canSubmit}>
             Save to Trip Log
           </button>
         </form>

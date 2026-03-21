@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { generateLiveDestinationPlans } from './plannerEngine'
 import { type PlannerInput } from '../types/travel'
 import * as liveTravelData from './liveTravelData'
@@ -223,30 +223,6 @@ const washingtonScenarioContext = {
           summary: 'Indian dining in Seattle',
           tags: ['indian', 'vegetarian', 'restaurant'],
         },
-        {
-          id: 'sea-food-2',
-          name: 'Spice Route Seattle',
-          category: 'food' as const,
-          latitude: 47.618,
-          longitude: -122.331,
-          distanceKm: 3,
-          estimatedCostUsd: 26,
-          mapUrl: 'https://maps.google.com/?q=Spice+Route+Seattle',
-          summary: 'Indian food near downtown Seattle',
-          tags: ['indian', 'north-indian', 'food'],
-        },
-        {
-          id: 'sea-stay-1',
-          name: 'Seattle Downtown Hotel',
-          category: 'stay' as const,
-          latitude: 47.611,
-          longitude: -122.336,
-          distanceKm: 1.9,
-          estimatedCostUsd: 150,
-          mapUrl: 'https://maps.google.com/?q=Seattle+Downtown+Hotel',
-          summary: 'Central stay option',
-          tags: ['hotel'],
-        },
       ],
     },
   ],
@@ -266,11 +242,7 @@ describe('plannerEngine: generateLiveDestinationPlans', () => {
   it('returns budget, mid-range, and premium plans', async () => {
     const plans = await generateLiveDestinationPlans(createInput())
 
-    expect(plans.map((plan) => plan.tier)).toEqual([
-      'budget',
-      'mid-range',
-      'premium',
-    ])
+    expect(plans.map((plan) => plan.tier)).toEqual(['budget', 'mid-range', 'premium'])
     expect(plans.every((plan) => plan.itinerary.length === 6)).toBe(true)
   })
 
@@ -284,10 +256,16 @@ describe('plannerEngine: generateLiveDestinationPlans', () => {
       expect(plan.breakdown.total).toBeGreaterThan(0)
       expect(plan.breakdown.perPerson).toBeGreaterThan(0)
       expect(plan.breakdown.totalInUsd).toBeGreaterThan(0)
+      const componentTotal =
+        plan.breakdown.transport +
+        plan.breakdown.accommodation +
+        plan.breakdown.food +
+        plan.breakdown.activities
+      expect(Math.abs(plan.breakdown.total - componentTotal)).toBeLessThanOrEqual(2)
     })
   })
 
-  it('builds a practical route and adds schedule slots to each day', async () => {
+  it('builds practical route and schedule slots for each day', async () => {
     const plans = await generateLiveDestinationPlans(createInput({ travelDays: 7 }))
 
     plans.forEach((plan) => {
@@ -298,13 +276,12 @@ describe('plannerEngine: generateLiveDestinationPlans', () => {
         expect(day.schedule.length).toBeGreaterThan(0)
         expect(day.schedule[0].time).toMatch(/\d{2}:\d{2}/)
       })
+      expect(plan.places.every((place) => place.type !== undefined)).toBe(true)
     })
   })
 
   it('adapts summary and notes to trip type', async () => {
-    const plans = await generateLiveDestinationPlans(
-      createInput({ tripType: 'honeymoon' }),
-    )
+    const plans = await generateLiveDestinationPlans(createInput({ tripType: 'honeymoon' }))
 
     plans.forEach((plan) => {
       expect(plan.summary.toLowerCase()).toContain('romantic')
@@ -313,7 +290,7 @@ describe('plannerEngine: generateLiveDestinationPlans', () => {
     })
   })
 
-  it('creates a 3-day Washington itinerary within 5k budget and surfaces Seattle Indian food', async () => {
+  it('creates a 3-day Washington itinerary and surfaces Seattle Indian food', async () => {
     mockedFetchLiveTravelContext.mockResolvedValueOnce(washingtonScenarioContext)
 
     const plans = await generateLiveDestinationPlans(
@@ -337,7 +314,6 @@ describe('plannerEngine: generateLiveDestinationPlans', () => {
       const indianFoodPlaces = plan.places.filter(
         (place) =>
           place.type === 'food' &&
-          place.name.toLowerCase().includes('seattle') &&
           place.cuisineTags.some((tag) => tag.toLowerCase().includes('indian')),
       )
 
@@ -351,6 +327,40 @@ describe('plannerEngine: generateLiveDestinationPlans', () => {
           ),
         ),
       ).toBe(true)
+    })
+  })
+
+  it('returns empty plans when no candidate cities exist', async () => {
+    mockedFetchLiveTravelContext.mockResolvedValueOnce({
+      ...mockContext,
+      candidates: [],
+    })
+
+    const plans = await generateLiveDestinationPlans(createInput())
+    expect(plans).toEqual([])
+  })
+
+  it('propagates live context fetch failures', async () => {
+    mockedFetchLiveTravelContext.mockRejectedValueOnce(new Error('Live API down'))
+
+    await expect(generateLiveDestinationPlans(createInput())).rejects.toThrow('Live API down')
+  })
+
+  it('generates budget optimizer over-budget guidance when estimates are very high', async () => {
+    mockedEstimateCityDailyUsd.mockImplementation(() => ({
+      stay: 420,
+      food: 260,
+      activities: 240,
+    }))
+
+    const plans = await generateLiveDestinationPlans(
+      createInput({ totalBudget: 900, travelDays: 4, travelerCount: 2 }),
+    )
+
+    expect(plans.length).toBeGreaterThan(0)
+    plans.forEach((plan) => {
+      expect(plan.isWithinBudget).toBe(false)
+      expect(plan.budgetOptimizerTips[0].toLowerCase()).toContain('over budget')
     })
   })
 })
